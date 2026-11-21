@@ -10,33 +10,91 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as IntegracjeRouteImport } from './routes/integracje'
+import { Route as ObjetoscRouteImport } from './routes/objetosc'
+import { Route as PodopieczniRouteImport } from './routes/podopieczni'
+import { Route as PomocRouteImport } from './routes/pomoc'
+import { Route as WywiadRouteImport } from './routes/wywiad'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntegracjeRoute = IntegracjeRouteImport.update({
+  id: '/integracje',
+  path: '/integracje',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ObjetoscRoute = ObjetoscRouteImport.update({
+  id: '/objetosc',
+  path: '/objetosc',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PodopieczniRoute = PodopieczniRouteImport.update({
+  id: '/podopieczni',
+  path: '/podopieczni',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PomocRoute = PomocRouteImport.update({
+  id: '/pomoc',
+  path: '/pomoc',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WywiadRoute = WywiadRouteImport.update({
+  id: '/wywiad',
+  path: '/wywiad',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/integracje': typeof IntegracjeRoute
+  '/objetosc': typeof ObjetoscRoute
+  '/podopieczni': typeof PodopieczniRoute
+  '/pomoc': typeof PomocRoute
+  '/wywiad': typeof WywiadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/integracje': typeof IntegracjeRoute
+  '/objetosc': typeof ObjetoscRoute
+  '/podopieczni': typeof PodopieczniRoute
+  '/pomoc': typeof PomocRoute
+  '/wywiad': typeof WywiadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/integracje': typeof IntegracjeRoute
+  '/objetosc': typeof ObjetoscRoute
+  '/podopieczni': typeof PodopieczniRoute
+  '/pomoc': typeof PomocRoute
+  '/wywiad': typeof WywiadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    '/' | '/integracje' | '/objetosc' | '/podopieczni' | '/pomoc' | '/wywiad'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/integracje' | '/objetosc' | '/podopieczni' | '/pomoc' | '/wywiad'
+  id:
+    | '__root__'
+    | '/'
+    | '/integracje'
+    | '/objetosc'
+    | '/podopieczni'
+    | '/pomoc'
+    | '/wywiad'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  IntegracjeRoute: typeof IntegracjeRoute
+  ObjetoscRoute: typeof ObjetoscRoute
+  PodopieczniRoute: typeof PodopieczniRoute
+  PomocRoute: typeof PomocRoute
+  WywiadRoute: typeof WywiadRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +106,51 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/integracje': {
+      id: '/integracje'
+      path: '/integracje'
+      fullPath: '/integracje'
+      preLoaderRoute: typeof IntegracjeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/objetosc': {
+      id: '/objetosc'
+      path: '/objetosc'
+      fullPath: '/objetosc'
+      preLoaderRoute: typeof ObjetoscRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/podopieczni': {
+      id: '/podopieczni'
+      path: '/podopieczni'
+      fullPath: '/podopieczni'
+      preLoaderRoute: typeof PodopieczniRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pomoc': {
+      id: '/pomoc'
+      path: '/pomoc'
+      fullPath: '/pomoc'
+      preLoaderRoute: typeof PomocRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wywiad': {
+      id: '/wywiad'
+      path: '/wywiad'
+      fullPath: '/wywiad'
+      preLoaderRoute: typeof WywiadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  IntegracjeRoute: IntegracjeRoute,
+  ObjetoscRoute: ObjetoscRoute,
+  PodopieczniRoute: PodopieczniRoute,
+  PomocRoute: PomocRoute,
+  WywiadRoute: WywiadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
