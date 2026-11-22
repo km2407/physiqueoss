@@ -25,6 +25,7 @@ export function blankClient(id: string): Client {
     injuryNotes: "",
     landmarks: cloneLandmarks(),
     mesoWeek: "T1",
+    progression: "double",
     checkins: [],
     status: "active",
   };
@@ -52,6 +53,7 @@ export const SAMPLE_CLIENTS: Client[] = [
     injuryNotes: "Konflikt podbarkowy prawego barku — ból przy wyciskaniu nad głowę i szerokim chwycie.",
     landmarks: cloneLandmarks({ chest: { mav: 14 }, sideDelt: { mev: 10 } }),
     mesoWeek: "T2",
+    progression: "volume",
     checkins: [
       { id: "m1", date: "2026-10-03", weight: 91.2, waist: 96, note: "Start redukcji" },
       { id: "m2", date: "2026-10-17", weight: 90.1, waist: 95 },
@@ -79,6 +81,7 @@ export const SAMPLE_CLIENTS: Client[] = [
     injuryNotes: "Ból lewego kolana przy głębokim zgięciu (po skręceniu 2024).",
     landmarks: cloneLandmarks({ glutes: { mev: 8, mav: 16, mrv: 22 }, hamstrings: { mev: 8 } }),
     mesoWeek: "T1",
+    progression: "double",
     checkins: [
       { id: "o1", date: "2026-10-10", weight: 58.6, waist: 66 },
       { id: "o2", date: "2026-10-24", weight: 58.9, waist: 66 },

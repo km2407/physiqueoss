@@ -13,7 +13,13 @@ export type MethodId =
   | "upper-lower"
   | "ppl"
   | "split"
-  | "linear-rir";
+  | "linear-rir"
+  | "arnold"
+  | "platz"
+  | "coleman"
+  | "cbum"
+  | "haney"
+  | "zane";
 export type MethodChoice = MethodId | "auto";
 
 export type Equipment =
@@ -57,6 +63,17 @@ export type Muscle =
   | "calves"
   | "abs";
 
+export type Progression = "volume" | "double" | "linear" | "wave" | "rir";
+
+/** One training day in a hand-picked or preset weekly layout. */
+export interface ScheduleDay {
+  weekday: number; // 0 = Monday
+  name: string; // empty = derived from muscles
+  muscles: Muscle[];
+  /** Exercise slots copied from an auto layout; dropped once muscles are edited. */
+  slots?: Muscle[];
+}
+
 export type MesoWeek = "T1" | "T2" | "T3" | "T4" | "DELOAD";
 
 export interface Landmark {
@@ -94,6 +111,9 @@ export interface Client {
   injuryNotes: string;
   landmarks: Record<Muscle, Landmark>;
   mesoWeek: MesoWeek;
+  progression: Progression;
+  /** Hand-picked muscles per weekday; overrides the methodology layout. */
+  customSchedule?: ScheduleDay[];
   checkins: CheckIn[];
   status: "active" | "paused";
   planCreatedAt?: string;
