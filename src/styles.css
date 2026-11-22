@@ -92,8 +92,11 @@
   --sidebar-accent: oklch(0.19 0.004 265);
   --sidebar-accent-foreground: oklch(0.97 0 0);
   --sidebar-border: oklch(1 0 0 / 6%);
+}
 
-  /* Male (M): cool emerald + cyan — default */
+/* Male (M): cool emerald + cyan — default */
+:root,
+[data-gender="M"] {
   --primary: oklch(0.8 0.15 163);
   --primary-foreground: oklch(0.18 0.04 165);
   --highlight: oklch(0.79 0.12 215);

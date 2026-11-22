@@ -26,6 +26,9 @@ export const Route = createFileRoute("/integracje")({
   component: Integrations,
 });
 
+// Fixed label keeps server and browser renders identical; real sends carry the actual time.
+const PREVIEW_AT = "<czas wysyłki>";
+
 function Row({ id, label, description, checked, onChange, disabled }: { id: string; label: string; description: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-4 py-3">
@@ -56,9 +59,9 @@ function Integrations() {
   };
 
   const previews = {
-    "plan.generated": planPayload(active),
-    "checkin.submitted": checkinPayload(active),
-    test: testPayload(),
+    "plan.generated": planPayload(active, PREVIEW_AT),
+    "checkin.submitted": checkinPayload(active, undefined, PREVIEW_AT),
+    test: testPayload(PREVIEW_AT),
   };
 
   return (

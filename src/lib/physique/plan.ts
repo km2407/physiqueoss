@@ -316,7 +316,7 @@ export function buildPlan(client: Client): Plan {
   const firstPass = computeVolume(allExercises);
   for (const m of ALL_MUSCLES) {
     const target = weekTarget(client.landmarks[m], week);
-    const remaining = Math.round(target - firstPass[m].indirect);
+    const remaining = Math.ceil(target - firstPass[m].indirect);
     allocate(m, remaining);
   }
 

@@ -49,8 +49,8 @@ export function MacroBar({
           <span className={cn("h-2 w-2 rounded-sm", bar)} />
           {label}
         </span>
-        <span className="tabular text-muted-foreground">
-          <span className="font-medium text-foreground">{grams} g</span> · {kcal} kcal
+        <span className="tabular whitespace-nowrap text-xs text-muted-foreground">
+          <span className="text-sm font-medium text-foreground">{grams} g</span> · {kcal} kcal
         </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
