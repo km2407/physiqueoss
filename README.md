@@ -39,7 +39,7 @@ npm run dev
 
 Aplikacja powstała w podejściu vibe coding: pomysły i prompty przygotowywałem w Gemini, błędy diagnozowałem z pomocą Claude, a całość składałem w Lovable. Każdą zmianę testuję, naprawiam błędy i dopiero potem rozwijam dalej.
 
-Wcześniej przez około miesiąc aplikacja była zintegrowana z Claude Code, n8n, Node.js i bazą Neon. Zrezygnowałem z tych rozwiązań ze względu na koszty, a w praktyce i tak były w niewielkim stopniu wykorzystywane, dlatego obecnie nie są podłączone.
+Wcześniej przez około miesiąc aplikacja była zintegrowana z Claude Code, n8n i bazą Neon. Zrezygnowałem z tych rozwiązań ze względu na koszty, a w praktyce i tak były w niewielkim stopniu wykorzystywane, dlatego obecnie nie są podłączone.
 
 ## Plany rozwoju
 
