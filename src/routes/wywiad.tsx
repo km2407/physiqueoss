@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AlertTriangle, Check, Dumbbell, HeartPulse, Info, Layers, Target, CalendarDays } from "lucide-react";
+import { AlertTriangle, Check, Dumbbell, HeartPulse, Info, Layers, Target, CalendarDays, TrendingUp, Trophy } from "lucide-react";
+import { toast } from "sonner";
+import { ScheduleEditor } from "@/components/physique/ScheduleEditor";
 import { useMemo, type ReactNode } from "react";
 import { PageHeader } from "@/components/physique/AppShell";
 import { Badge } from "@/components/ui/badge";
@@ -18,10 +20,11 @@ import {
   LEVEL_LABEL,
   PAL_OPTIONS,
 } from "@/lib/physique/labels";
-import { autoMethod, daysHint, METHOD_BY_ID, METHODS, methodSuitability } from "@/lib/physique/methods";
-import { buildPlan, DAY_LABELS, DAY_LAYOUT } from "@/lib/physique/plan";
+import { autoMethod, BODYBUILDER_SPLITS, daysHint, METHOD_BY_ID, METHODS, methodSuitability, type Methodology } from "@/lib/physique/methods";
+import { autoDayName, buildPlan, DAY_LABELS } from "@/lib/physique/plan";
+import { PROGRESSIONS } from "@/lib/physique/progression";
 import { usePhysique } from "@/lib/physique/store";
-import type { Client, Equipment, Goal, Injury, Level } from "@/lib/physique/types";
+import type { Client, Equipment, Goal, Injury, Level, MethodId } from "@/lib/physique/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/wywiad")({
@@ -112,6 +115,15 @@ function Interview() {
   const hint = daysHint(active.days, active.level);
   const auto = autoMethod(active);
   const plan = useMemo(() => buildPlan(active), [active]);
+
+  const changeDays = (d: number) => {
+    const preset = active.method !== "auto" && !!METHOD_BY_ID[active.method].preset;
+    if (active.customSchedule) toast.info("Ręczny układ dni zastąpiono automatycznym.");
+    if (preset) toast.info("Split kulturysty ma stałe dni — przełączono na tryb automatyczny.");
+    set({ days: d, customSchedule: undefined, ...(preset ? { method: "auto" as const } : {}) });
+  };
+  const chooseMethod = (m: Methodology) =>
+    set({ method: m.id as MethodId, customSchedule: undefined, ...(m.preset ? { days: m.preset.length } : {}) });
 
   const toggleEquipment = (e: Equipment) =>
     set({ equipment: active.equipment.includes(e) ? active.equipment.filter((x) => x !== e) : [...active.equipment, e] });
@@ -214,11 +226,11 @@ function Interview() {
                   key={d}
                   type="button"
                   role="radio"
-                  aria-checked={active.days === d}
-                  onClick={() => set({ days: d })}
+                  aria-checked={plan.sessions.length === d}
+                  onClick={() => changeDays(d)}
                   className={cn(
                     "flex h-14 flex-col items-center justify-center rounded-md border transition-colors",
-                    active.days === d ? "border-primary/50 bg-primary/10 text-primary shadow-glow" : "border-border-strong text-muted-foreground hover:bg-secondary hover:text-foreground",
+                    plan.sessions.length === d ? "border-primary/50 bg-primary/10 text-primary shadow-glow" : "border-border-strong text-muted-foreground hover:bg-secondary hover:text-foreground",
                   )}
                 >
                   <span className="tabular text-lg font-semibold leading-none">{d}</span>
@@ -226,24 +238,13 @@ function Interview() {
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-1.5">
-              {DAY_LABELS.map((label, i) => {
-                const on = DAY_LAYOUT[active.days]?.includes(i);
-                const session = plan.sessions.find((s) => s.weekday === i);
-                return (
-                  <div key={label} className={cn("rounded-md border px-2 py-1.5 text-center", on ? "border-primary/25 bg-primary/[0.06]" : "border-border")}>
-                    <div className="eyebrow">{label}</div>
-                    <div className={cn("truncate text-[11px]", on ? "text-foreground" : "text-subtle")}>{session?.name ?? "wolne"}</div>
-                  </div>
-                );
-              })}
-            </div>
             {hint && (
               <div className={cn("flex items-start gap-2 rounded-md border p-3 text-xs", hint.tone === "warn" ? "border-warning/25 bg-warning/5 text-warning" : "border-border-strong bg-secondary/40 text-muted-foreground")}>
                 {hint.tone === "warn" ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
                 {hint.text}
               </div>
             )}
+            <ScheduleEditor />
           </div>
         </Section>
 
@@ -251,7 +252,7 @@ function Interview() {
           <div className="space-y-3">
             <button
               type="button"
-              onClick={() => set({ method: "auto" })}
+              onClick={() => set({ method: "auto", customSchedule: undefined })}
               className={cn(
                 "flex w-full items-center justify-between gap-3 rounded-md border p-3 text-left transition-colors",
                 active.method === "auto" ? "border-primary/50 bg-primary/10" : "border-border-strong hover:bg-secondary/50",
@@ -273,7 +274,7 @@ function Interview() {
                   <button
                     key={m.id}
                     type="button"
-                    onClick={() => set({ method: m.id })}
+                    onClick={() => chooseMethod(m)}
                     className={cn(
                       "flex flex-col gap-1.5 rounded-md border p-3 text-left transition-colors",
                       selected ? "border-primary/50 bg-primary/10" : "border-border-strong hover:bg-secondary/50",
@@ -302,10 +303,89 @@ function Interview() {
                 );
               })}
             </div>
+            <div className="flex items-center gap-2 pt-3">
+              <Trophy className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">Splity kulturystów</span>
+              <span className="text-xs text-muted-foreground">— stały układ dni, możesz go potem zmienić ręcznie</span>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2">
+              {BODYBUILDER_SPLITS.map((m) => {
+                const suit = methodSuitability(m.id, active);
+                const selected = active.method === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => chooseMethod(m)}
+                    className={cn(
+                      "flex flex-col gap-2 rounded-md border p-3 text-left transition-colors",
+                      selected ? "border-primary/50 bg-primary/10" : "border-border-strong hover:bg-secondary/50",
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-sm font-medium">{m.name}</span>
+                        <span className="ml-1.5 text-xs text-muted-foreground">{m.preset?.length} dni</span>
+                      </div>
+                      {suit.ok ? <Badge variant="success">Zalecane</Badge> : <Badge variant="warning">Niezalecane</Badge>}
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted-foreground">{m.short}</p>
+                    <div className="grid grid-cols-7 gap-1">
+                      {DAY_LABELS.map((label, wd) => {
+                        const d = m.preset?.find((x) => x.weekday === wd);
+                        return (
+                          <div key={label} title={d ? d.name || autoDayName(d.muscles) : "Wolne"} className={cn("rounded border px-1 py-1 text-center", d ? "border-primary/25 bg-primary/[0.07]" : "border-border")}>
+                            <div className="font-mono text-[9px] uppercase text-subtle">{label}</div>
+                            <div className={cn("truncate text-[10px]", d ? "text-foreground" : "text-subtle")}>{d ? (d.name || autoDayName(d.muscles)).split(/[ :+]/)[0] : "—"}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {!suit.ok && (
+                      <ul className="space-y-0.5">
+                        {suit.reasons.map((r) => (
+                          <li key={r} className="flex items-start gap-1.5 text-[11px] text-warning">
+                            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                            {r}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </Section>
 
-        <Section n={4} title="Dostępny sprzęt" icon={<Dumbbell />} description="Plan dobiera ćwiczenia wyłącznie pod zaznaczony sprzęt.">
+        <Section n={4} title="Progresja" icon={<TrendingUp />} description="Jak plan ma rosnąć z tygodnia na tydzień w mezocyklu T1–T4 + deload.">
+          <div className="grid gap-2 md:grid-cols-2">
+            {PROGRESSIONS.map((p) => {
+              const selected = active.progression === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => set({ progression: p.id })}
+                  className={cn(
+                    "flex flex-col gap-1 rounded-md border p-3 text-left transition-colors",
+                    selected ? "border-primary/50 bg-primary/10" : "border-border-strong hover:bg-secondary/50",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium">{p.name}</span>
+                    {selected && <Badge variant="soft">Wybrano</Badge>}
+                  </div>
+                  <p className="text-xs leading-relaxed text-muted-foreground">{p.short}</p>
+                  <p className="text-[11px] text-subtle">{p.rampsVolume ? "Serie rosną co tydzień" : "Serie stałe, rośnie ciężar / intensywność"}</p>
+                </button>
+              );
+            })}
+          </div>
+        </Section>
+
+        <Section n={5} title="Dostępny sprzęt" icon={<Dumbbell />} description="Plan dobiera ćwiczenia wyłącznie pod zaznaczony sprzęt.">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <span className="eyebrow mr-1">Presety</span>
@@ -328,7 +408,7 @@ function Interview() {
           </div>
         </Section>
 
-        <Section n={5} title="Kontuzje i ograniczenia ruchowe" icon={<HeartPulse />} description="Wybrane kontuzje wykluczają ryzykowne ćwiczenia i podpowiadają bezpieczniejsze alternatywy.">
+        <Section n={6} title="Kontuzje i ograniczenia ruchowe" icon={<HeartPulse />} description="Wybrane kontuzje wykluczają ryzykowne ćwiczenia i podpowiadają bezpieczniejsze alternatywy.">
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
               {(Object.keys(INJURY_LABEL) as Injury[]).map((i) => (

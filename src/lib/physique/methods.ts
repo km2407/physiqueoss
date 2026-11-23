@@ -1,4 +1,4 @@
-import type { Client, Level, MethodChoice, MethodId } from "./types";
+import type { Client, Level, MethodChoice, MethodId, Muscle, ScheduleDay } from "./types";
 
 export type Structure = "fbw" | "ul" | "ppl" | "split";
 
@@ -20,7 +20,14 @@ export interface Methodology {
   notFor: string;
   structure: (days: number) => Structure;
   scheme: SetScheme;
+  /** Bodybuilder splits ship a fixed weekly layout. */
+  preset?: ScheduleDay[];
 }
+
+const day = (weekday: number, name: string, muscles: Muscle[]): ScheduleDay => ({ weekday, name, muscles });
+const CHEST_BACK: Muscle[] = ["chest", "back", "rearDelt"];
+const DELTS_ARMS: Muscle[] = ["frontDelt", "sideDelt", "biceps", "triceps"];
+const LEGS_ALL: Muscle[] = ["quads", "hamstrings", "glutes", "calves", "abs"];
 
 const byDays = (days: number): Structure => {
   if (days <= 2) return "fbw";
@@ -170,7 +177,122 @@ export const METHODS: Methodology[] = [
   },
 ];
 
-export const METHOD_BY_ID = Object.fromEntries(METHODS.map((m) => [m.id, m])) as Record<
+export const BODYBUILDER_SPLITS: Methodology[] = [
+  {
+    id: "arnold",
+    name: "Arnold Split",
+    author: "Arnold Schwarzenegger",
+    short: "6 dni: Klatka + Plecy, Barki + Ramiona, Nogi — dwa razy w tygodniu.",
+    description: "Klasyczny podwójny cykl złotej ery: antagonistyczne klatka i plecy, barki z ramionami i ciężkie nogi, każda partia 2×/tydz.",
+    levels: ["advanced"],
+    notFor: "Niezalecane dla początkujących i średniozaawansowanych — bardzo duża objętość tygodniowa.",
+    structure: () => "split",
+    scheme: { reps: "8–12", rest: "60–90 s", note: "Superserie klatka/plecy" },
+    preset: [
+      day(0, "Klatka + Plecy", CHEST_BACK),
+      day(1, "Barki + Ramiona", DELTS_ARMS),
+      day(2, "Nogi", LEGS_ALL),
+      day(3, "Klatka + Plecy", CHEST_BACK),
+      day(4, "Barki + Ramiona", DELTS_ARMS),
+      day(5, "Nogi", LEGS_ALL),
+    ],
+  },
+  {
+    id: "platz",
+    name: "Tom Platz — Golden Eagle",
+    author: "Tom Platz",
+    short: "5 dni z ogromnym akcentem na nogi: 2 dni nóg, wysokie powtórzenia w przysiadach.",
+    description: "Split w stylu Toma Platza: osobny dzień czworogłowych z przysiadami na wysokie powtórzenia i osobny dzień dwugłowych, a góra ciała w dwóch sesjach.",
+    levels: ["advanced"],
+    notFor: "Niezalecane dla początkujących i średniozaawansowanych oraz przy kontuzjach kolan lub odcinka lędźwiowego.",
+    structure: () => "split",
+    scheme: { reps: "8–12 (przysiady 15–20+)", rest: "90–120 s", note: "Przysiad: seria na wysokie powtórzenia do załamania" },
+    preset: [
+      day(0, "Nogi: czworogłowe", ["quads", "calves"]),
+      day(1, "Klatka + Plecy", CHEST_BACK),
+      day(3, "Nogi: dwugłowe + pośladki", ["hamstrings", "glutes", "calves", "abs"]),
+      day(4, "Barki + Ramiona", DELTS_ARMS),
+      day(5, "Nogi: czworogłowe (lżej)", ["quads", "abs"]),
+    ],
+  },
+  {
+    id: "coleman",
+    name: "Ronnie Coleman Split",
+    author: "Ronnie Coleman",
+    short: "6 dni: Plecy + Biceps + Barki, Klatka + Triceps, Nogi — ×2.",
+    description: "Split w stylu Ronniego Colemana: ciężkie wielostawy, każda partia 2×/tydz., jeden dzień wolny.",
+    levels: ["advanced"],
+    notFor: "Niezalecane dla początkujących i średniozaawansowanych oraz bez asekuracji przy ciężkich bojach.",
+    structure: () => "split",
+    scheme: { reps: "8–12", rest: "90–120 s" },
+    preset: [
+      day(0, "Plecy + Biceps + Barki", ["back", "rearDelt", "biceps", "sideDelt"]),
+      day(1, "Klatka + Triceps", ["chest", "frontDelt", "triceps"]),
+      day(2, "Nogi", LEGS_ALL),
+      day(3, "Plecy + Biceps + Barki", ["back", "rearDelt", "biceps", "sideDelt"]),
+      day(4, "Klatka + Triceps", ["chest", "frontDelt", "triceps"]),
+      day(5, "Nogi", LEGS_ALL),
+    ],
+  },
+  {
+    id: "cbum",
+    name: "CBum Split",
+    author: "Chris Bumstead",
+    short: "5 dni: Nogi, Klatka + Plecy, Barki + Ramiona, Nogi (tył), Plecy + Klatka.",
+    description: "Split w stylu Chrisa Bumsteada (Classic Physique): dwa dni nóg, góra ciała rozbita na pary partii, akcent na estetykę barków i talii.",
+    levels: ["intermediate", "advanced"],
+    notFor: "Niezalecane dla początkujących.",
+    structure: () => "split",
+    scheme: { reps: "8–12", rest: "90 s" },
+    preset: [
+      day(0, "Nogi: czworogłowe", ["quads", "calves", "abs"]),
+      day(1, "Klatka + Plecy", ["chest", "back"]),
+      day(2, "Barki + Ramiona", ["sideDelt", "rearDelt", "biceps", "triceps"]),
+      day(4, "Nogi: dwugłowe + pośladki", ["hamstrings", "glutes", "calves"]),
+      day(5, "Plecy + Klatka", ["back", "chest", "frontDelt", "abs"]),
+    ],
+  },
+  {
+    id: "haney",
+    name: "Lee Haney — 3 on / 1 off",
+    author: "Lee Haney",
+    short: "„Stymuluj, nie niszcz”: Klatka + Plecy, Nogi, Barki + Ramiona, dzień wolny.",
+    description: "Split w stylu Lee Haneya: umiarkowana objętość, 3 dni treningu i 1 dzień przerwy, nacisk na regenerację.",
+    levels: ["intermediate", "advanced"],
+    notFor: "Niezalecane dla zupełnie początkujących.",
+    structure: () => "split",
+    scheme: { reps: "8–12", rest: "90 s" },
+    preset: [
+      day(0, "Klatka + Plecy", CHEST_BACK),
+      day(1, "Nogi", LEGS_ALL),
+      day(2, "Barki + Ramiona", DELTS_ARMS),
+      day(4, "Klatka + Plecy", CHEST_BACK),
+      day(5, "Nogi", LEGS_ALL),
+    ],
+  },
+  {
+    id: "zane",
+    name: "Frank Zane Split",
+    author: "Frank Zane",
+    short: "Estetyka i proporcje: Plecy + Biceps, Nogi, Klatka + Barki + Triceps.",
+    description: "Split w stylu Franka Zane'a: niższe ciężary, pełna kontrola ruchu, cykl 3 dni treningu / 1 dzień przerwy.",
+    levels: ["intermediate", "advanced"],
+    notFor: "Niezalecane dla zupełnie początkujących.",
+    structure: () => "split",
+    scheme: { reps: "10–12", rest: "60–90 s", note: "Pełne spięcie w szczycie ruchu" },
+    preset: [
+      day(0, "Plecy + Biceps", ["back", "rearDelt", "biceps"]),
+      day(1, "Nogi", LEGS_ALL),
+      day(2, "Klatka + Barki + Triceps", ["chest", "frontDelt", "sideDelt", "triceps"]),
+      day(4, "Plecy + Biceps", ["back", "rearDelt", "biceps"]),
+      day(5, "Nogi", LEGS_ALL),
+    ],
+  },
+];
+
+export const ALL_METHODS = [...METHODS, ...BODYBUILDER_SPLITS];
+
+export const METHOD_BY_ID = Object.fromEntries(ALL_METHODS.map((m) => [m.id, m])) as Record<
   MethodId,
   Methodology
 >;
@@ -221,6 +343,8 @@ export function methodSuitability(
   if (id === "hiit" && (c.injuries.includes("knee") || c.injuries.includes("ankle")))
     reasons.push("Kontuzja kolana/kostki — interwały uderzeniowe są ryzykowne.");
   if (id === "gvt" && c.goal === "cut") reasons.push("Głęboki deficyt utrudnia regenerację po 10×10.");
+  if (id === "platz" && (c.injuries.includes("knee") || c.injuries.includes("lumbar")))
+    reasons.push("Kontuzja kolana lub odcinka lędźwiowego — przysiady na wysokie powtórzenia są ryzykowne.");
   if ((id === "heavy-duty" || id === "blood-guts") && c.days >= 6)
     reasons.push("Treningi do załamania wymagają 4–7 dni przerwy dla partii.");
   return { ok: reasons.length === 0, reasons: Array.from(new Set(reasons)) };

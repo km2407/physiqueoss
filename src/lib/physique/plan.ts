@@ -1,7 +1,8 @@
 import { EXERCISES, type Exercise } from "./exercises";
 import { ALL_MUSCLES, INJURY_LABEL, MUSCLE_LABEL } from "./labels";
 import { METHOD_BY_ID, resolveMethod, type Methodology, type Structure } from "./methods";
-import type { Client, Equipment, Injury, Landmark, MesoWeek, Muscle } from "./types";
+import { PROGRESSION_BY_ID, progressionTarget, type ProgressionModel } from "./progression";
+import type { Client, Equipment, Injury, Landmark, MesoWeek, Muscle, ScheduleDay } from "./types";
 
 export const DAY_LABELS = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Ndz"];
 
@@ -124,6 +125,49 @@ export function sessionTemplates(structure: Structure, days: number): SessionTem
   return names.map((n) => ({ name: n, slots: SPLIT_DAYS[n]! }));
 }
 
+const SMALL_MUSCLES: Muscle[] = ["calves", "abs", "erectors", "frontDelt", "rearDelt"];
+
+/** Exercise slots for a hand-picked day: fewer muscles = more exercises per muscle. */
+export function slotsForMuscles(muscles: Muscle[]): Muscle[] {
+  const unique = Array.from(new Set(muscles));
+  const per = unique.length <= 1 ? 4 : unique.length === 2 ? 3 : unique.length <= 4 ? 2 : 1;
+  const big = unique.filter((m) => !SMALL_MUSCLES.includes(m));
+  const small = unique.filter((m) => SMALL_MUSCLES.includes(m));
+  const out: Muscle[] = [];
+  for (const m of big) for (let i = 0; i < per; i++) out.push(m);
+  for (const m of small) for (let i = 0; i < Math.max(1, per - 1); i++) out.push(m);
+  return out;
+}
+
+export function autoDayName(muscles: Muscle[]): string {
+  const unique = Array.from(new Set(muscles));
+  if (unique.length === 0) return "Brak partii";
+  if (unique.length > 4) return "Full Body";
+  return unique.map((m) => MUSCLE_LABEL[m]).join(" + ");
+}
+
+export type ScheduleSource = "custom" | "preset" | "auto";
+
+/** The weekly layout the plan uses: hand-picked > bodybuilder preset > methodology template. */
+export function effectiveSchedule(client: Client): { days: ScheduleDay[]; source: ScheduleSource } {
+  if (client.customSchedule && client.customSchedule.length > 0)
+    return { days: [...client.customSchedule].sort((a, b) => a.weekday - b.weekday), source: "custom" };
+  const method = METHOD_BY_ID[resolveMethod(client)];
+  if (method.preset) return { days: method.preset.map(({ weekday, name, muscles }) => ({ weekday, name, muscles: [...muscles] })), source: "preset" };
+  const days = clampDays(client.days);
+  const weekdays = DAY_LAYOUT[days]!;
+  const templates = sessionTemplates(method.structure(days), days);
+  return {
+    days: templates.map((t, i) => ({
+      weekday: weekdays[i] ?? i,
+      name: t.name,
+      muscles: Array.from(new Set(t.slots)),
+      slots: t.slots,
+    })),
+    source: "auto",
+  };
+}
+
 export interface PlanExercise {
   key: string;
   exerciseId: string;
@@ -165,6 +209,9 @@ export interface VolumeRow {
 export interface Plan {
   method: Methodology;
   structure: Structure;
+  progression: ProgressionModel;
+  progressionRule: string;
+  scheduleSource: ScheduleSource;
   week: MesoWeek;
   rir: string;
   sessions: PlanSession[];
@@ -252,23 +299,26 @@ const COMPOUND_FIRST: Muscle[] = ["chest", "back", "frontDelt", "quads", "hamstr
 export function buildPlan(client: Client): Plan {
   const methodId = resolveMethod(client);
   const method = METHOD_BY_ID[methodId];
-  const days = clampDays(client.days);
-  const structure = method.structure(days);
-  const templates = sessionTemplates(structure, days);
+  const schedule = effectiveSchedule(client);
+  const days = schedule.days.length;
+  const structure = method.preset || schedule.source === "custom" ? "split" : method.structure(clampDays(client.days));
   const week = client.mesoWeek;
+  const progression = PROGRESSION_BY_ID[client.progression] ?? PROGRESSION_BY_ID.volume;
   const isHit = HIT.includes(methodId);
   const rir = isHit && week !== "DELOAD" ? "0 (załamanie)" : RIR_BY_WEEK[week];
+  const reps = progression.repsByWeek?.[week] ?? method.scheme.reps;
   const warnings: string[] = [];
-  const weekdays = DAY_LAYOUT[days]!;
   const equipment: Equipment[] = client.equipment.length ? client.equipment : ["bodyweight"];
+  const target = (m: Muscle) => progressionTarget(client.landmarks[m], week, progression.id);
 
   // 1) Pick exercises for every slot.
   const missing = new Set<Muscle>();
-  const sessions: PlanSession[] = templates.map((t, i) => {
+  const sessions: PlanSession[] = schedule.days.map((d, i) => {
     const used = new Set<string>();
     const seen = new Set<Muscle>();
     const exercises: PlanExercise[] = [];
-    t.slots.forEach((muscle, slotIdx) => {
+    const slots = d.slots ?? slotsForMuscles(d.muscles);
+    slots.forEach((muscle, slotIdx) => {
       const first = !seen.has(muscle);
       seen.add(muscle);
       const pick = pickExercise(muscle, {
@@ -290,15 +340,38 @@ export function buildPlan(client: Client): Plan {
         muscle,
         compound: pick.exercise.compound,
         sets: 0,
-        reps: method.scheme.reps,
+        reps,
         rir,
         rest: method.scheme.rest,
         ...(pick.risky ? { risky: pick.risky } : {}),
         ...(pick.replaced ? { replaced: pick.replaced } : {}),
       });
     });
-    return { weekday: weekdays[i] ?? i, dayLabel: DAY_LABELS[weekdays[i] ?? i]!, name: t.name, exercises };
+    return {
+      weekday: d.weekday,
+      dayLabel: DAY_LABELS[d.weekday] ?? "",
+      name: d.name.trim() || autoDayName(d.muscles),
+      exercises,
+    };
   });
+
+  if (schedule.source === "custom") {
+    const covered = new Set(schedule.days.flatMap((d) => d.muscles));
+    const uncovered = (["chest", "back", "quads", "hamstrings", "sideDelt"] as Muscle[]).filter((m) => !covered.has(m));
+    if (uncovered.length)
+      warnings.push(`W tygodniu brakuje partii: ${uncovered.map((m) => MUSCLE_LABEL[m]).join(", ")}.`);
+    const byDay = new Map(schedule.days.map((d) => [d.weekday, new Set(d.muscles)]));
+    const backToBack = new Set<Muscle>();
+    for (const d of schedule.days) {
+      const next = byDay.get((d.weekday + 1) % 7);
+      if (!next) continue;
+      for (const m of d.muscles) if (next.has(m) && !SMALL_MUSCLES.includes(m)) backToBack.add(m);
+    }
+    if (backToBack.size)
+      warnings.push(`Dzień po dniu: ${[...backToBack].map((m) => MUSCLE_LABEL[m]).join(", ")} — zostaw min. 48 h regeneracji.`);
+    for (const d of schedule.days)
+      if (d.muscles.length === 0) warnings.push(`${DAY_LABELS[d.weekday]}: dzień treningowy bez wybranych partii.`);
+  }
 
   for (const m of missing) warnings.push(`Brak ćwiczeń na: ${MUSCLE_LABEL[m]} przy zaznaczonym sprzęcie.`);
 
@@ -312,11 +385,10 @@ export function buildPlan(client: Client): Plan {
       e.sets = Math.min(maxSets, parts[idx] ?? 0);
     });
   };
-  for (const m of ALL_MUSCLES) allocate(m, weekTarget(client.landmarks[m], week));
+  for (const m of ALL_MUSCLES) allocate(m, target(m));
   const firstPass = computeVolume(allExercises);
   for (const m of ALL_MUSCLES) {
-    const target = weekTarget(client.landmarks[m], week);
-    const remaining = Math.ceil(target - firstPass[m].indirect);
+    const remaining = Math.ceil(target(m) - firstPass[m].indirect);
     allocate(m, remaining);
   }
 
@@ -366,7 +438,7 @@ export function buildPlan(client: Client): Plan {
       direct,
       indirect,
       total,
-      target: weekTarget(l, week),
+      target: target(m),
       frequency,
       landmark: l,
       status: volumeStatus(total, l),
@@ -381,8 +453,22 @@ export function buildPlan(client: Client): Plan {
     else if (swapped > 0) warnings.push(`${INJURY_LABEL[inj]}: ${swapped} ćw. zamieniono na bezpieczniejsze.`);
   }
 
-  const restDays = DAY_LABELS.filter((_, i) => !weekdays.includes(i));
-  return { method, structure, week, rir, sessions, restDays, volume, warnings };
+  const trainingDays = sessions.map((x) => x.weekday);
+  const restDays = DAY_LABELS.filter((_, i) => !trainingDays.includes(i));
+  if (days === 0) warnings.push("Brak dni treningowych.");
+  return {
+    method,
+    structure,
+    progression,
+    progressionRule: progression.rule(rir),
+    scheduleSource: schedule.source,
+    week,
+    rir,
+    sessions,
+    restDays,
+    volume,
+    warnings,
+  };
 }
 
 export const DEFAULT_LANDMARKS: Record<Muscle, Landmark> = {

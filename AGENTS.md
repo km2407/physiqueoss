@@ -31,7 +31,7 @@ use the editor.
 
 ## Project rules
 - PhysiqueOS domain logic (methodologies, exercise library, plan builder, fractional volume, energy) lives as pure functions in `src/lib/physique/`; pages only render it. Why: rules stay testable in `plan.test.ts` without the UI.
-- The plan is derived on the fly from client interview data (`buildPlan`), never stored. Why: any interview/landmark change must instantly rebuild the plan.
+- The plan is derived on the fly from client interview data (`buildPlan`), never stored; the weekly layout comes from `effectiveSchedule` (hand-picked days > bodybuilder preset > methodology template). Why: any interview/landmark/day change must instantly rebuild the plan.
 - All app data persists in browser localStorage via `PhysiqueProvider` (no backend, no logins). Why: single-trainer personal tool; user chose on-device storage.
 - Gender theming is the `data-gender` attribute (M/K) swapping accent tokens in `src/styles.css`, mirrored on `<html>` for portaled overlays. Why: one switch recolors every component.
 - n8n webhooks are sent through the `sendWebhook` server function, not from the browser. Why: avoids CORS on user webhook URLs and keeps the secret header off third-party scripts.

@@ -3,9 +3,11 @@ import { PageHeader, Panel } from "@/components/physique/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { ALL_MUSCLES, MESO_WEEKS, MUSCLE_LABEL } from "@/lib/physique/labels";
-import { buildPlan, DEFAULT_LANDMARKS, RIR_BY_WEEK, weekTarget, type VolumeStatus } from "@/lib/physique/plan";
+import { buildPlan, DEFAULT_LANDMARKS, RIR_BY_WEEK, type VolumeStatus } from "@/lib/physique/plan";
+import { PROGRESSION_BY_ID, PROGRESSIONS, progressionTarget } from "@/lib/physique/progression";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePhysique } from "@/lib/physique/store";
-import type { Landmark, Muscle } from "@/lib/physique/types";
+import type { Landmark, MesoWeek, Muscle, Progression } from "@/lib/physique/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
@@ -33,12 +35,42 @@ const STATUS: Record<VolumeStatus, { label: string; variant: "danger" | "muted" 
 };
 
 const SCALE_MAX = 30;
+const KEYS = ["mv", "mev", "mav", "mrv"] as const;
+type LKey = (typeof KEYS)[number];
+const KEY_LABEL: Record<LKey, string> = { mv: "MV", mev: "MEV", mav: "MAV", mrv: "MRV" };
+const KEY_HINT: Record<LKey, string> = {
+  mv: "utrzymanie / deload",
+  mev: "start mezocyklu (T1)",
+  mav: "szczyt produktywny (T3)",
+  mrv: "granica regeneracji (T4)",
+};
+
+/** Keeps MV ≤ MEV ≤ MAV ≤ MRV when one landmark moves. */
+function withLandmark(l: Landmark, key: LKey, value: number): Landmark {
+  const next = { ...l, [key]: value };
+  const idx = KEYS.indexOf(key);
+  for (let i = idx - 1; i >= 0; i--) next[KEYS[i]!] = Math.min(next[KEYS[i]!], next[KEYS[i + 1]!]);
+  for (let i = idx + 1; i < KEYS.length; i++) next[KEYS[i]!] = Math.max(next[KEYS[i]!], next[KEYS[i - 1]!]);
+  return next;
+}
+
+/** Which landmarks set this week's target for the chosen progression. */
+function drivers(week: MesoWeek, progression: Progression): LKey[] {
+  const ramp = PROGRESSION_BY_ID[progression]?.rampsVolume ?? true;
+  if (week === "DELOAD") return ["mv", "mev"];
+  if (!ramp) return ["mev", "mav"];
+  return { T1: ["mev"], T2: ["mev", "mav"], T3: ["mav"], T4: ["mav", "mrv"] }[week] as LKey[];
+}
 
 function VolumePage() {
   const { active, updateClient } = usePhysique();
   const plan = buildPlan(active);
   const setLandmark = (m: Muscle, patch: Partial<Landmark>) =>
     updateClient(active.id, { landmarks: { ...active.landmarks, [m]: { ...active.landmarks[m], ...patch } } });
+  const setKey = (m: Muscle, key: LKey, value: number) =>
+    updateClient(active.id, { landmarks: { ...active.landmarks, [m]: withLandmark(active.landmarks[m], key, value) } });
+  const progression = active.progression ?? "volume";
+  const driving = drivers(active.mesoWeek, progression);
 
   const totals = plan.volume.reduce(
     (a, v) => ({ direct: a.direct + v.direct, indirect: a.indirect + v.indirect }),
@@ -64,6 +96,24 @@ function VolumePage() {
 
       <Panel title="Progresja w mezocyklu" action={<span className="eyebrow">kontrola RIR</span>}>
         <div className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs text-muted-foreground">
+              <span className="text-foreground">Model progresji:</span> {PROGRESSION_BY_ID[progression].short}
+            </div>
+            <Select value={progression} onValueChange={(v) => updateClient(active.id, { progression: v as Progression })}>
+              <SelectTrigger className="h-8 w-full text-xs sm:w-60" aria-label="Model progresji">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PROGRESSIONS.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">{plan.progressionRule}</p>
           <div className="grid grid-cols-5 gap-2">
             {MESO_WEEKS.map((w) => {
               const on = active.mesoWeek === w;
@@ -101,7 +151,7 @@ function VolumePage() {
                     <td className="py-1.5">{MUSCLE_LABEL[m]}</td>
                     {MESO_WEEKS.map((w) => (
                       <td key={w} className={cn("tabular py-1.5 text-right text-muted-foreground", active.mesoWeek === w && "font-medium text-primary")}>
-                        {weekTarget(active.landmarks[m], w)}
+                        {progressionTarget(active.landmarks[m], w, progression)}
                       </td>
                     ))}
                   </tr>
@@ -179,26 +229,33 @@ function VolumePage() {
               </div>
 
               <div className="space-y-3">
-                <div>
-                  <div className="tabular mb-1 flex justify-between text-[11px] text-muted-foreground">
-                    <span>MV {l.mv} · MEV {l.mev} · MAV {l.mav} · MRV {l.mrv}</span>
-                    <span>serie / tydz.</span>
-                  </div>
-                  <Slider
-                    min={0}
-                    max={SCALE_MAX}
-                    step={1}
-                    value={[l.mv, l.mev, l.mav, l.mrv]}
-                    thumbLabels={["MV", "MEV", "MAV", "MRV"]}
-                    onValueChange={(vals) => {
-                      const [mv = 0, mev = 0, mav = 0, mrv = 0] = vals;
-                      setLandmark(v.muscle, { mv, mev, mav, mrv });
-                    }}
-                  />
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="w-24 shrink-0 text-[11px] text-muted-foreground">Częstotliwość {l.freq}×</span>
-                  <Slider min={1} max={4} step={1} value={[l.freq]} thumbLabels={["Częstotliwość"]} onValueChange={([f]) => setLandmark(v.muscle, { freq: f ?? 1 })} />
+                {KEYS.map((k) => {
+                  const isDriver = driving.includes(k);
+                  return (
+                    <div key={k} className="grid grid-cols-[3.25rem_1fr_2rem] items-center gap-3">
+                      <span className={cn("font-mono text-[11px]", isDriver ? "text-primary" : "text-muted-foreground")} title={KEY_HINT[k]}>
+                        {KEY_LABEL[k]}
+                      </span>
+                      <Slider
+                        min={0}
+                        max={SCALE_MAX}
+                        step={1}
+                        value={[l[k]]}
+                        thumbLabels={[`${KEY_LABEL[k]} — ${MUSCLE_LABEL[v.muscle]}`]}
+                        onValueChange={([val]) => setKey(v.muscle, k, val ?? 0)}
+                        className={cn(!isDriver && "opacity-70")}
+                      />
+                      <span className={cn("tabular text-right text-sm font-medium", isDriver && "text-primary")}>{l[k]}</span>
+                    </div>
+                  );
+                })}
+                <p className="text-[11px] text-subtle">
+                  Podświetlony landmark, który ustala cel w tygodniu {active.mesoWeek}: <span className="tabular text-foreground">{v.target} serii</span>.
+                </p>
+                <div className="grid grid-cols-[3.25rem_1fr_2rem] items-center gap-3">
+                  <span className="w-[3.25rem] shrink-0 font-mono text-[11px] text-muted-foreground">FREQ</span>
+                  <Slider min={1} max={4} step={1} value={[l.freq]} thumbLabels={[`Częstotliwość — ${MUSCLE_LABEL[v.muscle]}`]} onValueChange={([f]) => setLandmark(v.muscle, { freq: f ?? 1 })} />
+                  <span className="tabular w-8 text-right text-sm font-medium">{l.freq}×</span>
                 </div>
                 {v.frequency !== l.freq && (
                   <p className="text-[11px] text-subtle">

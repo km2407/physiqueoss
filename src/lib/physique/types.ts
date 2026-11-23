@@ -113,7 +113,7 @@ export interface Client {
   mesoWeek: MesoWeek;
   progression: Progression;
   /** Hand-picked muscles per weekday; overrides the methodology layout. */
-  customSchedule?: ScheduleDay[];
+  customSchedule?: ScheduleDay[] | undefined;
   checkins: CheckIn[];
   status: "active" | "paused";
   planCreatedAt?: string;

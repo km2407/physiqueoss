@@ -31,6 +31,9 @@ export function planPayload(c: Client, at = new Date().toISOString()) {
     client: clientSummary(c),
     plan: {
       methodology: plan.method.name,
+      progression: plan.progression.name,
+      progressionRule: plan.progressionRule,
+      customDays: plan.scheduleSource === "custom",
       daysPerWeek: plan.sessions.length,
       mesocycleWeek: plan.week,
       rir: plan.rir,

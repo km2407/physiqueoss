@@ -89,6 +89,7 @@ function Dashboard() {
             <Pill label="Poziom" value={LEVEL_LABEL[active.level]} />
             <Pill label="Dni/tydz." value={active.days} />
             <Pill label="Metodyka" value={methodLabel(active.method, active)} />
+            <Pill label="Progresja" value={plan.progression.name} />
             <Pill label="Sprzęt" value={`${active.equipment.length} poz.`} />
             <Pill
               label="Kontuzje"
@@ -235,6 +236,14 @@ function Dashboard() {
         >
           <div className="space-y-4">
             <WeekStrip plan={plan} />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground">
+                <span className="text-foreground">{plan.progression.name}:</span> {plan.progressionRule}
+              </p>
+              <Link to="/wywiad" hash="rozklad" className="shrink-0 text-xs text-primary hover:underline">
+                Zmień partie w dniach →
+              </Link>
+            </div>
             {plan.warnings.length > 0 && (
               <ul className="space-y-1.5 rounded-md border border-warning/20 bg-warning/5 p-3">
                 {plan.warnings.map((w) => (

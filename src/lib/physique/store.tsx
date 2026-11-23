@@ -58,7 +58,13 @@ export function PhysiqueProvider({ children }: { children: ReactNode }) {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as State;
-        if (parsed.clients?.length) setState({ ...initialState, ...parsed });
+        if (parsed.clients?.length)
+          setState({
+            ...initialState,
+            ...parsed,
+            // Older saves predate the progression field.
+            clients: parsed.clients.map((c) => ({ ...c, progression: c.progression ?? "volume" })),
+          });
       }
     } catch {
       /* ignore corrupt storage */
