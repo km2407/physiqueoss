@@ -1,6 +1,6 @@
 import { useServerFn } from "@tanstack/react-start";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { blankClient, SAMPLE_CLIENTS } from "./samples";
+import { blankClient, normalizeClient, SAMPLE_CLIENTS } from "./samples";
 import type { CheckIn, Client, WebhookLogEntry, WebhookSettings } from "./types";
 import { sendWebhook } from "./webhook.functions";
 import type { WebhookEvent } from "./payload";
@@ -62,8 +62,8 @@ export function PhysiqueProvider({ children }: { children: ReactNode }) {
           setState({
             ...initialState,
             ...parsed,
-            // Older saves predate the progression field.
-            clients: parsed.clients.map((c) => ({ ...c, progression: c.progression ?? "volume" })),
+            // Older saves predate newer fields (progression, slider volume).
+            clients: parsed.clients.map(normalizeClient),
           });
       }
     } catch {

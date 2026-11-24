@@ -77,6 +77,9 @@ export interface ScheduleDay {
 export type MesoWeek = "T1" | "T2" | "T3" | "T4" | "DELOAD";
 
 export interface Landmark {
+  /** Weekly working sets chosen with the single volume slider. */
+  sets: number;
+  /** Reference landmarks (shown as marks, not edited). */
   mv: number;
   mev: number;
   mav: number;
@@ -114,6 +117,8 @@ export interface Client {
   progression: Progression;
   /** Hand-picked muscles per weekday; overrides the methodology layout. */
   customSchedule?: ScheduleDay[] | undefined;
+  /** Hand-picked exercise per plan slot (`weekday:muscle:index` → exercise id). */
+  exerciseSwaps?: Record<string, string>;
   checkins: CheckIn[];
   status: "active" | "paused";
   planCreatedAt?: string;

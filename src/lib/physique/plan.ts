@@ -4,6 +4,15 @@ import { METHOD_BY_ID, resolveMethod, type Methodology, type Structure } from ".
 import { PROGRESSION_BY_ID, progressionTarget, type ProgressionModel } from "./progression";
 import type { Client, Equipment, Injury, Landmark, MesoWeek, Muscle, ScheduleDay } from "./types";
 
+/** No exercise gets more than this many working sets (GVT 10×10 and FST-7 keep their signature exercise). */
+export const MAX_SETS_PER_EXERCISE = 4;
+const MAX_EXERCISES_PER_MUSCLE_DAY = 4;
+
+/** Stable id of a plan slot, used to remember a hand-picked exercise. */
+export function swapKey(weekday: number, muscle: Muscle, index: number) {
+  return `${weekday}:${muscle}:${index}`;
+}
+
 export const DAY_LABELS = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Ndz"];
 
 /** Which weekdays (0 = Mon) are training days for 1–7 sessions per week. */
@@ -19,22 +28,6 @@ export const DAY_LAYOUT: Record<number, number[]> = {
 
 export function clampDays(days: number) {
   return Math.min(7, Math.max(1, Math.round(days)));
-}
-
-/** Weekly sets target for a muscle in a given mesocycle week. */
-export function weekTarget(l: Landmark, week: MesoWeek): number {
-  switch (week) {
-    case "T1":
-      return l.mev;
-    case "T2":
-      return Math.round(l.mev + (l.mav - l.mev) * 0.5);
-    case "T3":
-      return l.mav;
-    case "T4":
-      return Math.round(Math.min(l.mrv, l.mav + (l.mrv - l.mav) * 0.5));
-    case "DELOAD":
-      return Math.max(l.mv, Math.round(l.mev * 0.5));
-  }
 }
 
 export const RIR_BY_WEEK: Record<MesoWeek, string> = {
@@ -170,6 +163,10 @@ export function effectiveSchedule(client: Client): { days: ScheduleDay[]; source
 
 export interface PlanExercise {
   key: string;
+  /** Slot id for swapping this exercise by hand. */
+  swapKey: string;
+  /** Chosen by hand instead of automatically. */
+  swapped?: boolean;
   exerciseId: string;
   name: string;
   muscle: Muscle;
@@ -224,6 +221,12 @@ function hasEquipment(e: Exercise, eq: Equipment[]) {
   return e.needs.every((n) => eq.includes(n));
 }
 
+/** Exercises the trainer can swap to: same main muscle, doable with the client's equipment. */
+export function exerciseOptions(muscle: Muscle, equipment: Equipment[]): Exercise[] {
+  const eq: Equipment[] = equipment.length ? equipment : ["bodyweight"];
+  return EXERCISES.filter((e) => e.primary === muscle && hasEquipment(e, eq));
+}
+
 function rotate<T>(arr: T[], n: number): T[] {
   if (arr.length === 0) return arr;
   const k = n % arr.length;
@@ -232,6 +235,7 @@ function rotate<T>(arr: T[], n: number): T[] {
 
 interface Pick {
   exercise: Exercise;
+  swapped?: boolean;
   risky?: Injury[];
   replaced?: { name: string; injuries: Injury[] };
 }
@@ -293,6 +297,62 @@ export function volumeStatus(total: number, l: Landmark): VolumeStatus {
   return "over-mrv";
 }
 
+/**
+ * Spreads each muscle's weekly sets over the days that train it. Muscles trained on one day are fixed;
+ * the rest go set by set to the day with the lightest load, so days end up as even as the layout allows.
+ */
+export function allocateSets(capacity: Map<Muscle, number>[], targets: Record<Muscle, number>): Map<Muscle, number>[] {
+  const alloc = capacity.map(() => new Map<Muscle, number>());
+  const load = capacity.map(() => 0);
+  const get = (i: number, m: Muscle) => alloc[i]!.get(m) ?? 0;
+  const room = (i: number, m: Muscle) => (capacity[i]!.get(m) ?? 0) - get(i, m);
+  const add = (i: number, m: Muscle, n: number) => {
+    alloc[i]!.set(m, get(i, m) + n);
+    load[i]! += n;
+  };
+  const flex: { m: Muscle; days: number[]; left: number }[] = [];
+  for (const m of ALL_MUSCLES) {
+    const total = Math.max(0, Math.round(targets[m] ?? 0));
+    const days = capacity.map((c, i) => ((c.get(m) ?? 0) > 0 ? i : -1)).filter((i) => i >= 0);
+    if (total === 0 || days.length === 0) continue;
+    if (days.length === 1) add(days[0]!, m, Math.min(total, room(days[0]!, m)));
+    else flex.push({ m, days, left: total });
+  }
+  // Keep at least 2 sets per exercise day: very small volumes go to fewer (the lightest) days.
+  flex.sort((a, b) => a.days.length - b.days.length);
+  for (const f of flex) {
+    const keep = Math.max(1, Math.min(f.days.length, Math.floor(f.left / 2)));
+    f.days = [...f.days].sort((a, b) => load[a]! - load[b]!).slice(0, keep);
+    for (const i of f.days) {
+      const n = Math.min(f.left, 2, room(i, f.m));
+      add(i, f.m, n);
+      f.left -= n;
+    }
+  }
+  let active = true;
+  while (active) {
+    active = false;
+    for (const f of flex) {
+      if (f.left <= 0) continue;
+      let best = -1;
+      for (const i of f.days) {
+        if (room(i, f.m) <= 0) continue;
+        const cost = load[i]! + 2 * get(i, f.m);
+        const bestCost = best < 0 ? Infinity : load[best]! + 2 * get(best, f.m);
+        if (cost < bestCost) best = i;
+      }
+      if (best < 0) {
+        f.left = 0;
+        continue;
+      }
+      add(best, f.m, 1);
+      f.left -= 1;
+      active = true;
+    }
+  }
+  return alloc;
+}
+
 const HIT: string[] = ["heavy-duty", "blood-guts", "rest-pause"];
 const COMPOUND_FIRST: Muscle[] = ["chest", "back", "frontDelt", "quads", "hamstrings", "glutes"];
 
@@ -311,49 +371,99 @@ export function buildPlan(client: Client): Plan {
   const equipment: Equipment[] = client.equipment.length ? client.equipment : ["bodyweight"];
   const target = (m: Muscle) => progressionTarget(client.landmarks[m], week, progression.id);
 
-  // 1) Pick exercises for every slot.
+  const maxSets = Math.min(MAX_SETS_PER_EXERCISE, method.scheme.maxSetsPerExercise ?? MAX_SETS_PER_EXERCISE);
+  const swaps = client.exerciseSwaps ?? {};
+
+  // 1) Candidate exercises per day and muscle (hand-picked swaps first, then automatic picks).
   const missing = new Set<Muscle>();
-  const sessions: PlanSession[] = schedule.days.map((d, i) => {
+  const dayPlans = schedule.days.map((d, i) => {
+    const slotList = d.slots ?? slotsForMuscles(d.muscles);
+    const muscles = Array.from(new Set(slotList));
     const used = new Set<string>();
-    const seen = new Set<Muscle>();
-    const exercises: PlanExercise[] = [];
-    const slots = d.slots ?? slotsForMuscles(d.muscles);
-    slots.forEach((muscle, slotIdx) => {
-      const first = !seen.has(muscle);
-      seen.add(muscle);
-      const pick = pickExercise(muscle, {
-        equipment,
-        injuries: client.injuries,
-        preferCompound: first && COMPOUND_FIRST.includes(muscle),
-        exclude: used,
-        rotation: i + (first ? 0 : 1),
-      });
-      if (!pick) {
-        missing.add(muscle);
-        return;
+    const candidates = new Map<Muscle, Pick[]>();
+    for (const muscle of muscles) {
+      const limit = isHit ? slotList.filter((m) => m === muscle).length : MAX_EXERCISES_PER_MUSCLE_DAY;
+      const reserved = new Set(
+        Array.from({ length: limit }, (_, k) => swaps[swapKey(d.weekday, muscle, k)]).filter((x): x is string => !!x),
+      );
+      const picks: Pick[] = [];
+      for (let k = 0; k < limit; k++) {
+        const swapId = swaps[swapKey(d.weekday, muscle, k)];
+        const swapEx = swapId
+          ? EXERCISES.find((e) => e.id === swapId && e.primary === muscle && hasEquipment(e, equipment) && !used.has(e.id))
+          : undefined;
+        let pick: Pick | null;
+        if (swapEx) {
+          const risk = swapEx.risk.filter((r) => client.injuries.includes(r));
+          pick = { exercise: swapEx, swapped: true, ...(risk.length ? { risky: risk } : {}) };
+        } else {
+          pick = pickExercise(muscle, {
+            equipment,
+            injuries: client.injuries,
+            preferCompound: k === 0 && COMPOUND_FIRST.includes(muscle),
+            exclude: new Set([...used, ...reserved]),
+            rotation: i + (k > 0 ? 1 : 0),
+          });
+        }
+        if (!pick) break;
+        used.add(pick.exercise.id);
+        picks.push(pick);
       }
-      used.add(pick.exercise.id);
-      exercises.push({
-        key: `${i}-${slotIdx}-${pick.exercise.id}`,
-        exerciseId: pick.exercise.id,
-        name: pick.exercise.name,
-        muscle,
-        compound: pick.exercise.compound,
-        sets: 0,
-        reps,
-        rir,
-        rest: method.scheme.rest,
-        ...(pick.risky ? { risky: pick.risky } : {}),
-        ...(pick.replaced ? { replaced: pick.replaced } : {}),
-      });
-    });
-    return {
-      weekday: d.weekday,
-      dayLabel: DAY_LABELS[d.weekday] ?? "",
-      name: d.name.trim() || autoDayName(d.muscles),
-      exercises,
-    };
+      if (picks.length === 0) missing.add(muscle);
+      candidates.set(muscle, picks);
+    }
+    return { day: d, index: i, muscles, candidates };
   });
+
+  // 2) Spread weekly sets over days so every day carries a similar load, then turn them into exercises.
+  const capacity = dayPlans.map((p) => new Map(p.muscles.map((m) => [m, (p.candidates.get(m)?.length ?? 0) * maxSets])));
+  const toSessions = (targets: Record<Muscle, number>): PlanSession[] => {
+    const alloc = allocateSets(capacity, targets);
+    return dayPlans.map((p, i) => {
+      const exercises: PlanExercise[] = [];
+      for (const muscle of p.muscles) {
+        const sets = alloc[i]?.get(muscle) ?? 0;
+        const picks = p.candidates.get(muscle) ?? [];
+        if (sets <= 0 || picks.length === 0) continue;
+        const n = Math.min(picks.length, Math.ceil(sets / maxSets));
+        distribute(sets, n).forEach((part, k) => {
+          const pick = picks[k]!;
+          exercises.push({
+            key: `${i}-${muscle}-${k}-${pick.exercise.id}`,
+            swapKey: swapKey(p.day.weekday, muscle, k),
+            exerciseId: pick.exercise.id,
+            name: pick.exercise.name,
+            muscle,
+            compound: pick.exercise.compound,
+            sets: part,
+            reps,
+            rir,
+            rest: method.scheme.rest,
+            ...(pick.swapped ? { swapped: true } : {}),
+            ...(pick.risky ? { risky: pick.risky } : {}),
+            ...(pick.replaced ? { replaced: pick.replaced } : {}),
+          });
+        });
+      }
+      return {
+        weekday: p.day.weekday,
+        dayLabel: DAY_LABELS[p.day.weekday] ?? "",
+        name: p.day.name.trim() || autoDayName(p.day.muscles),
+        exercises,
+      };
+    });
+  };
+  const fullTargets = Object.fromEntries(ALL_MUSCLES.map((m) => [m, target(m)])) as Record<Muscle, number>;
+  const firstPass = computeVolume(toSessions(fullTargets).flatMap((s) => s.exercises));
+  // Compounds already give fractional sets to helper muscles — only the rest needs direct work.
+  const directTargets = Object.fromEntries(
+    ALL_MUSCLES.map((m) => {
+      const rest = Math.ceil(target(m) - firstPass[m].indirect);
+      // A single leftover set is not worth its own exercise.
+      return [m, rest <= 1 ? 0 : rest];
+    }),
+  ) as Record<Muscle, number>;
+  const sessions = toSessions(directTargets);
 
   if (schedule.source === "custom") {
     const covered = new Set(schedule.days.flatMap((d) => d.muscles));
@@ -374,23 +484,6 @@ export function buildPlan(client: Client): Plan {
   }
 
   for (const m of missing) warnings.push(`Brak ćwiczeń na: ${MUSCLE_LABEL[m]} przy zaznaczonym sprzęcie.`);
-
-  // 2) Allocate direct sets from landmarks, minus what compounds already deliver indirectly.
-  const maxSets = method.scheme.maxSetsPerExercise ?? 6;
-  const allExercises = sessions.flatMap((s) => s.exercises);
-  const allocate = (muscle: Muscle, total: number) => {
-    const slots = allExercises.filter((e) => e.muscle === muscle);
-    const parts = distribute(Math.max(0, total), slots.length);
-    slots.forEach((e, idx) => {
-      e.sets = Math.min(maxSets, parts[idx] ?? 0);
-    });
-  };
-  for (const m of ALL_MUSCLES) allocate(m, target(m));
-  const firstPass = computeVolume(allExercises);
-  for (const m of ALL_MUSCLES) {
-    const remaining = Math.ceil(target(m) - firstPass[m].indirect);
-    allocate(m, remaining);
-  }
 
   // 3) Methodology-specific set schemes.
   for (const s of sessions) {
@@ -423,6 +516,16 @@ export function buildPlan(client: Client): Plan {
     }
     if (methodId === "hiit") s.finisher = "Interwały HIIT: 8–10 × 20 s pracy / 40 s przerwy (rower, ergometr, sanki)";
     s.exercises = s.exercises.filter((e) => e.sets > 0);
+  }
+
+  const dayTotals = sessions.map((x) => ({ label: x.dayLabel, sets: x.exercises.reduce((a, e) => a + e.sets, 0) }));
+  if (dayTotals.length >= 2) {
+    const max = dayTotals.reduce((a, b) => (b.sets > a.sets ? b : a));
+    const min = dayTotals.reduce((a, b) => (b.sets < a.sets ? b : a));
+    if (max.sets - min.sets > 6)
+      warnings.push(
+        `Nierówne dni: ${max.label} ${max.sets} serii, ${min.label} ${min.sets} serii. Aby je wyrównać, przenieś jedną partię na lżejszy dzień albo zmień jej objętość.`,
+      );
   }
 
   // 4) Volume summary.
@@ -472,17 +575,17 @@ export function buildPlan(client: Client): Plan {
 }
 
 export const DEFAULT_LANDMARKS: Record<Muscle, Landmark> = {
-  chest: { mv: 6, mev: 8, mav: 16, mrv: 22, freq: 2 },
-  back: { mv: 8, mev: 10, mav: 18, mrv: 25, freq: 2 },
-  frontDelt: { mv: 0, mev: 2, mav: 8, mrv: 12, freq: 2 },
-  sideDelt: { mv: 6, mev: 8, mav: 18, mrv: 26, freq: 2 },
-  rearDelt: { mv: 4, mev: 6, mav: 14, mrv: 22, freq: 2 },
-  biceps: { mv: 4, mev: 8, mav: 16, mrv: 22, freq: 2 },
-  triceps: { mv: 4, mev: 6, mav: 12, mrv: 18, freq: 2 },
-  quads: { mv: 6, mev: 8, mav: 15, mrv: 20, freq: 2 },
-  hamstrings: { mv: 4, mev: 6, mav: 12, mrv: 18, freq: 2 },
-  glutes: { mv: 0, mev: 4, mav: 10, mrv: 16, freq: 2 },
-  erectors: { mv: 0, mev: 2, mav: 6, mrv: 10, freq: 1 },
-  calves: { mv: 6, mev: 8, mav: 14, mrv: 20, freq: 2 },
-  abs: { mv: 0, mev: 6, mav: 16, mrv: 25, freq: 2 },
+  chest: { sets: 12, mv: 6, mev: 8, mav: 16, mrv: 22, freq: 2 },
+  back: { sets: 14, mv: 8, mev: 10, mav: 18, mrv: 25, freq: 2 },
+  frontDelt: { sets: 4, mv: 0, mev: 2, mav: 8, mrv: 12, freq: 2 },
+  sideDelt: { sets: 12, mv: 6, mev: 8, mav: 18, mrv: 26, freq: 2 },
+  rearDelt: { sets: 8, mv: 4, mev: 6, mav: 14, mrv: 22, freq: 2 },
+  biceps: { sets: 10, mv: 4, mev: 8, mav: 16, mrv: 22, freq: 2 },
+  triceps: { sets: 8, mv: 4, mev: 6, mav: 12, mrv: 18, freq: 2 },
+  quads: { sets: 12, mv: 6, mev: 8, mav: 15, mrv: 20, freq: 2 },
+  hamstrings: { sets: 8, mv: 4, mev: 6, mav: 12, mrv: 18, freq: 2 },
+  glutes: { sets: 6, mv: 0, mev: 4, mav: 10, mrv: 16, freq: 2 },
+  erectors: { sets: 3, mv: 0, mev: 2, mav: 6, mrv: 10, freq: 1 },
+  calves: { sets: 10, mv: 6, mev: 8, mav: 14, mrv: 20, freq: 2 },
+  abs: { sets: 8, mv: 0, mev: 6, mav: 16, mrv: 25, freq: 2 },
 };

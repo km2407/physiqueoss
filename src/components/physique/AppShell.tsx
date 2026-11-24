@@ -28,12 +28,12 @@ const NAV = [
 function Logo() {
   return (
     <Link to="/" className="flex items-center gap-2.5 px-1">
-      <span className="grid h-7 w-7 place-items-center rounded-md bg-primary text-primary-foreground shadow-glow">
+      <span className="grid h-8 w-8 place-items-center border-2 border-frame bg-primary text-primary-foreground shadow-glow">
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
           <path d="M4 15V9M8 18V6M16 18V6M20 15V9M8 12h8" />
         </svg>
       </span>
-      <span className="text-[15px] font-semibold tracking-tight">PhysiqueOS</span>
+      <span className="font-stencil text-xl tracking-wide">PhysiqueOS</span>
     </Link>
   );
 }
@@ -55,8 +55,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               to={to}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                isActive && "bg-sidebar-accent text-sidebar-accent-foreground",
+                "flex items-center gap-2.5 border-l-4 border-transparent px-2.5 py-2 font-display text-[15px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                isActive && "border-primary bg-sidebar-accent text-sidebar-accent-foreground",
               )}
             >
               <Icon className={cn("h-4 w-4", isActive && "text-primary")} />
@@ -91,14 +91,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 onClick={() => setActive(c.id)}
                 data-gender={c.gender}
                 className={cn(
-                  "group flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors hover:bg-sidebar-accent",
+                  "group flex items-center gap-2.5 px-2.5 py-1.5 text-left transition-colors hover:bg-sidebar-accent",
                   isActive && "bg-sidebar-accent",
                 )}
               >
                 <span
                   className={cn(
-                    "grid h-6 w-6 shrink-0 place-items-center rounded-full border text-[10px] font-semibold",
-                    isActive ? "border-primary/40 bg-primary/15 text-primary" : "border-border-strong text-muted-foreground",
+                    "grid h-6 w-6 shrink-0 place-items-center border-2 font-display text-xs font-bold",
+                    isActive ? "border-frame bg-primary text-primary-foreground" : "border-frame bg-secondary text-muted-foreground",
                   )}
                 >
                   {c.name.slice(0, 1).toUpperCase()}
@@ -119,7 +119,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
-      <div className="border-t border-sidebar-border px-2.5 pt-3 text-[11px] text-subtle">
+      <div className="border-t-2 border-sidebar-border px-2.5 pt-3 font-mono text-[11px] uppercase tracking-wider text-subtle">
         PhysiqueOS <span className="text-muted-foreground">by Jakub Majchrowski</span>
       </div>
     </div>
@@ -137,11 +137,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div data-gender={active.gender} className="min-h-screen bg-background text-foreground">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-sidebar-border bg-sidebar lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r-4 border-sidebar-border bg-sidebar lg:block">
         <SidebarContent />
       </aside>
 
-      <header className="sticky top-0 z-20 flex h-12 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b-4 border-frame bg-sidebar px-4 lg:hidden">
         <Logo />
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
@@ -178,7 +178,7 @@ export function PageHeader({
     <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="space-y-1.5">
         {eyebrow && <div className="eyebrow">{eyebrow}</div>}
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">{title}</h1>
+        <h1 className="text-3xl font-bold sm:text-4xl">{title}</h1>
         {description && <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -202,8 +202,8 @@ export function Panel({
   return (
     <section className={cn("panel flex flex-col", className)}>
       {title && (
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <h2 className="flex items-center gap-2 text-[13px] font-medium text-foreground">
+        <div className="flex items-center justify-between gap-2 border-b-2 border-frame bg-secondary px-4 py-2.5">
+          <h2 className="flex items-center gap-2 text-base font-bold text-foreground">
             {icon && <span className="text-muted-foreground [&_svg]:h-4 [&_svg]:w-4">{icon}</span>}
             {title}
           </h2>

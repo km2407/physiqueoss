@@ -3,3 +3,9 @@
 - [x] Store with on-device saving + sample M/K clients
 - [x] Layout: sidebar with client switcher, gender themes
 - [x] Pages: Plan (home), Podopieczni, Wywiad, Objętość, Integracje n8n, Pomoc
+- [x] Per-day muscle picker, bodybuilder splits, progression choice
+- [ ] Volume: one slider per muscle (weekly sets), landmarks only as reference
+- [ ] Max 4 sets per exercise; extra exercises added when volume needs it
+- [ ] Optional exercise swap per plan exercise (same muscle, available equipment)
+- [ ] Balance sets evenly across training days
+- [ ] Less "AI" look: tactical military heavy-duty, matte grey background, thick raw card borders

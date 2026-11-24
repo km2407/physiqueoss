@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPlan, computeVolume, DAY_LAYOUT, weekTarget, DEFAULT_LANDMARKS } from "./plan";
+import { buildPlan, computeVolume, DAY_LAYOUT, DEFAULT_LANDMARKS, MAX_SETS_PER_EXERCISE } from "./plan";
 import { autoMethod, methodSuitability } from "./methods";
 import { SAMPLE_CLIENTS, blankClient } from "./samples";
 import { planPayload } from "./payload";
@@ -50,11 +50,9 @@ describe("fractional volume", () => {
 });
 
 describe("mesocycle", () => {
-  it("deload drops below MEV and T3 hits MAV", () => {
-    const l = DEFAULT_LANDMARKS.chest;
-    expect(weekTarget(l, "T1")).toBe(l.mev);
-    expect(weekTarget(l, "T3")).toBe(l.mav);
-    expect(weekTarget(l, "DELOAD")).toBeLessThan(l.mev);
+  it("deload halves the chosen weekly volume", () => {
+    const l = { ...DEFAULT_LANDMARKS.chest, sets: 16 };
+    expect(progressionTarget(l, "DELOAD", "volume")).toBe(8);
   });
 });
 
@@ -117,17 +115,57 @@ describe("progression models", () => {
     const l = DEFAULT_LANDMARKS.chest;
     expect(progressionTarget(l, "T1", "double")).toBe(progressionTarget(l, "T3", "double"));
   });
-  it("volume progression ramps from MEV in T1 to MAV in T3", () => {
-    const l = DEFAULT_LANDMARKS.chest;
-    expect(progressionTarget(l, "T1", "volume")).toBe(l.mev);
-    expect(progressionTarget(l, "T3", "volume")).toBe(l.mav);
+  it("volume progression starts at the slider value in T1 and grows by T3", () => {
+    const l = { ...DEFAULT_LANDMARKS.chest, sets: 12 };
+    expect(progressionTarget(l, "T1", "volume")).toBe(12);
+    expect(progressionTarget(l, "T3", "volume")).toBeGreaterThan(12);
   });
-  it("raising MEV raises chest sets in T1", () => {
-    const c = { ...blankClient("x"), progression: "volume" as const };
-    const before = buildPlan(c).volume.find((v) => v.muscle === "chest")!.target;
-    const c2 = { ...c, landmarks: { ...c.landmarks, chest: { ...c.landmarks.chest, mev: 12 } } };
-    const after = buildPlan(c2).volume.find((v) => v.muscle === "chest")!.target;
-    expect(after).toBe(12);
-    expect(after).toBeGreaterThan(before);
+});
+
+describe("single volume slider", () => {
+  it("setting chest to 18 sets makes the plan target 18 chest sets in T1", () => {
+    const c = { ...blankClient("x"), mesoWeek: "T1" as const };
+    const c2 = { ...c, landmarks: { ...c.landmarks, chest: { ...c.landmarks.chest, sets: 18 } } };
+    const row = buildPlan(c2).volume.find((v) => v.muscle === "chest")!;
+    expect(row.target).toBe(18);
+    expect(row.total).toBeGreaterThanOrEqual(17);
+  });
+});
+
+describe("sets per exercise", () => {
+  it("never gives an exercise more than 4 sets, even at high volume", () => {
+    expect(MAX_SETS_PER_EXERCISE).toBe(4);
+    for (const method of ["auto", "ppl", "split", "upper-lower", "fbw", "arnold", "platz", "cbum"] as const) {
+      const c = { ...blankClient("x"), days: 5, method };
+      const high = Object.fromEntries(Object.entries(c.landmarks).map(([m, l]) => [m, { ...l, sets: 20 }]));
+      const plan = buildPlan({ ...c, landmarks: high as typeof c.landmarks });
+      for (const s of plan.sessions) for (const e of s.exercises) expect(e.sets).toBeLessThanOrEqual(4);
+    }
+  });
+});
+
+describe("even days", () => {
+  it("two days sharing chest and back end up within 2 sets of each other", () => {
+    const c = {
+      ...blankClient("x"),
+      customSchedule: [
+        { weekday: 0, name: "", muscles: ["chest" as const, "back" as const, "quads" as const] },
+        { weekday: 3, name: "", muscles: ["chest" as const, "back" as const, "sideDelt" as const] },
+      ],
+    };
+    const totals = buildPlan(c).sessions.map((s) => s.exercises.reduce((a, e) => a + e.sets, 0));
+    expect(Math.abs(totals[0]! - totals[1]!)).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("exercise swap", () => {
+  it("swaps band lateral raises for dumbbell lateral raises when picked by hand", () => {
+    const ola = SAMPLE_CLIENTS[1]!;
+    const before = buildPlan(ola).sessions.flatMap((s) => s.exercises).find((e) => e.exerciseId === "band-lateral")!;
+    expect(before).toBeDefined();
+    const plan = buildPlan({ ...ola, exerciseSwaps: { [before.swapKey]: "db-lateral" } });
+    const after = plan.sessions.flatMap((s) => s.exercises).find((e) => e.swapKey === before.swapKey)!;
+    expect(after.exerciseId).toBe("db-lateral");
+    expect(after.swapped).toBe(true);
   });
 });

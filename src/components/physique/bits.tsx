@@ -5,7 +5,7 @@ export function Pill({ label, value, className }: { label: string; value: ReactN
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border border-border-strong bg-secondary/50 px-2.5 py-1 text-xs",
+        "inline-flex items-center gap-1.5 rounded-sm border-2 border-frame bg-secondary px-2.5 py-1 text-xs",
         className,
       )}
     >
@@ -20,7 +20,7 @@ export function Stat({ label, value, unit, hint }: { label: string; value: React
     <div className="space-y-1">
       <div className="eyebrow">{label}</div>
       <div className="tabular flex items-baseline gap-1">
-        <span className="text-2xl font-semibold tracking-tight">{value}</span>
+        <span className="font-display text-3xl font-bold">{value}</span>
         {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
       </div>
       {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
@@ -53,8 +53,8 @@ export function MacroBar({
           <span className="text-sm font-medium text-foreground">{grams} g</span> · {kcal} kcal
         </span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-        <div className={cn("h-full rounded-full transition-all", bar)} style={{ width: `${Math.round(share * 100)}%` }} />
+      <div className="h-2 overflow-hidden border border-frame bg-secondary">
+        <div className={cn("h-full transition-all", bar)} style={{ width: `${Math.round(share * 100)}%` }} />
       </div>
     </div>
   );

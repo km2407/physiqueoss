@@ -51,7 +51,7 @@ export const SAMPLE_CLIENTS: Client[] = [
     ],
     injuries: ["shoulder"],
     injuryNotes: "Konflikt podbarkowy prawego barku — ból przy wyciskaniu nad głowę i szerokim chwycie.",
-    landmarks: cloneLandmarks({ chest: { mav: 14 }, sideDelt: { mev: 10 } }),
+    landmarks: cloneLandmarks({ chest: { sets: 10 }, sideDelt: { sets: 14 } }),
     mesoWeek: "T2",
     progression: "volume",
     checkins: [
@@ -79,7 +79,7 @@ export const SAMPLE_CLIENTS: Client[] = [
     equipment: ["dumbbells", "bench", "kettlebell", "bands", "pullup", "bodyweight"],
     injuries: ["knee"],
     injuryNotes: "Ból lewego kolana przy głębokim zgięciu (po skręceniu 2024).",
-    landmarks: cloneLandmarks({ glutes: { mev: 8, mav: 16, mrv: 22 }, hamstrings: { mev: 8 } }),
+    landmarks: cloneLandmarks({ glutes: { sets: 12, mev: 8, mav: 16, mrv: 22 }, hamstrings: { sets: 10, mev: 8 } }),
     mesoWeek: "T1",
     progression: "double",
     checkins: [
@@ -91,3 +91,14 @@ export const SAMPLE_CLIENTS: Client[] = [
     status: "active",
   },
 ];
+
+/** Fills fields added after a client was saved on this device. */
+export function normalizeClient(c: Client): Client {
+  const landmarks = Object.fromEntries(
+    (Object.keys(DEFAULT_LANDMARKS) as Muscle[]).map((m) => {
+      const l = { ...DEFAULT_LANDMARKS[m], ...c.landmarks?.[m] };
+      return [m, { ...l, sets: typeof l.sets === "number" ? l.sets : Math.round((l.mev + l.mav) / 2) }];
+    }),
+  ) as Record<Muscle, Landmark>;
+  return { ...c, progression: c.progression ?? "volume", landmarks };
+}

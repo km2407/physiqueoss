@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
-import { Activity, AlertTriangle, Flame, Gauge, LineChart as LineIcon, Plus, Scale, Sparkles, Zap } from "lucide-react";
+import { Activity, AlertTriangle, ClipboardCheck, Flame, Gauge, LineChart as LineIcon, Plus, Scale, Zap } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { CheckinDialog } from "@/components/physique/CheckinDialog";
@@ -42,6 +42,14 @@ function Dashboard() {
   const toGoal = Math.round((active.targetWeight - active.weight) * 10) / 10;
   const keyVolume = plan.volume.filter((v) => ["chest", "back", "quads", "hamstrings", "sideDelt", "glutes"].includes(v.muscle));
 
+  const onSwap = (key: string, exerciseId: string | null) => {
+    const next = { ...(active.exerciseSwaps ?? {}) };
+    if (exerciseId) next[key] = exerciseId;
+    else delete next[key];
+    updateClient(active.id, { exerciseSwaps: next });
+  };
+  const swap = { equipment: active.equipment, injuries: active.injuries, onSwap };
+
   const createPlan = async () => {
     const at = new Date().toISOString();
     updateClient(active.id, { planCreatedAt: at });
@@ -54,17 +62,17 @@ function Dashboard() {
   return (
     <div className="space-y-6 animate-fade-up">
       {/* Header */}
-      <section className="panel hero-glow relative overflow-hidden">
-        <div className="dot-grid pointer-events-none absolute inset-0 opacity-40 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
+      <section className="panel relative overflow-hidden">
+        <div className="hazard h-2 border-b-2 border-frame" />
         <div className="relative flex flex-col gap-5 p-5 sm:p-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold tracking-tight text-primary">PhysiqueOS</span>
+                <span className="font-stencil text-base text-primary">PhysiqueOS</span>
                 <span className="text-subtle">/</span>
                 <span className="eyebrow">Plan treningowy</span>
               </div>
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              <h1 className="text-3xl font-bold sm:text-4xl">
                 Plan stworzony dla: <span className="text-primary">{active.name}</span>
               </h1>
               <p className="text-sm text-muted-foreground">
@@ -77,8 +85,8 @@ function Dashboard() {
               <Button variant="subtle" asChild>
                 <Link to="/wywiad">Edytuj wywiad</Link>
               </Button>
-              <Button variant="glow" onClick={createPlan}>
-                <Sparkles />
+              <Button className="border-2 border-frame font-display text-base font-bold uppercase tracking-wide shadow-glow" onClick={createPlan}>
+                <ClipboardCheck />
                 Stwórz plan
               </Button>
             </div>
@@ -184,7 +192,7 @@ function Dashboard() {
           <div className="flex h-full flex-col justify-between gap-3">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="tabular text-2xl font-semibold tracking-tight">
+                <span className="tabular font-display text-3xl font-bold">
                   {reg.weeklyChangePct === null ? "—" : `${reg.weeklyChangePct > 0 ? "+" : ""}${reg.weeklyChangePct}%`}
                 </span>
                 <span className="text-xs text-muted-foreground">/ tydzień</span>
@@ -245,7 +253,7 @@ function Dashboard() {
               </Link>
             </div>
             {plan.warnings.length > 0 && (
-              <ul className="space-y-1.5 rounded-md border border-warning/20 bg-warning/5 p-3">
+              <ul className="space-y-1.5 border-2 border-warning/50 bg-warning/5 p-3">
                 {plan.warnings.map((w) => (
                   <li key={w} className="flex items-start gap-2 text-xs text-warning">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -256,7 +264,7 @@ function Dashboard() {
             )}
             <div className="grid gap-3 md:grid-cols-2">
               {plan.sessions.map((s) => (
-                <SessionCard key={`${s.weekday}-${s.name}`} session={s} />
+                <SessionCard key={`${s.weekday}-${s.name}`} session={s} swap={swap} />
               ))}
             </div>
           </div>
@@ -278,9 +286,9 @@ function Dashboard() {
               <span>bezpośr. + pośr. = łącznie</span>
             </div>
             {keyVolume.map((v) => {
-              const pct = Math.min(100, (v.total / v.landmark.mrv) * 100);
-              const mev = (v.landmark.mev / v.landmark.mrv) * 100;
-              const mav = (v.landmark.mav / v.landmark.mrv) * 100;
+              const scale = Math.max(v.landmark.mrv, v.target, v.total, 1);
+              const pct = Math.min(100, (v.total / scale) * 100);
+              const goal = (v.target / scale) * 100;
               return (
                 <div key={v.muscle} className="space-y-1">
                   <div className="flex justify-between text-xs">
@@ -289,15 +297,14 @@ function Dashboard() {
                       {v.direct} + {v.indirect} = <span className="font-medium text-foreground">{v.total}</span>
                     </span>
                   </div>
-                  <div className="relative h-1.5 rounded-full bg-secondary">
-                    <div className="absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: `${pct}%` }} />
-                    <span className="absolute -top-0.5 h-2.5 w-px bg-foreground/40" style={{ left: `${mev}%` }} />
-                    <span className="absolute -top-0.5 h-2.5 w-px bg-foreground/40" style={{ left: `${mav}%` }} />
+                  <div className="relative h-2.5 border border-frame bg-secondary">
+                    <div className="absolute inset-y-0 left-0 bg-primary" style={{ width: `${pct}%` }} />
+                    <span className="absolute -inset-y-1 w-0.5 bg-foreground" style={{ left: `${goal}%` }} />
                   </div>
                 </div>
               );
             })}
-            <p className="pt-1 text-[11px] text-subtle">Kreski oznaczają MEV i MAV, koniec paska to MRV.</p>
+            <p className="pt-1 text-[11px] text-subtle">Kreska to ustawiona objętość na ten tydzień.</p>
           </div>
         </Panel>
       </div>

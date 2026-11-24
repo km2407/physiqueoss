@@ -4,7 +4,7 @@ export interface ProgressionModel {
   id: Progression;
   name: string;
   short: string;
-  /** Whether weekly sets ramp MEV → MAV → MRV across T1–T4. */
+  /** Whether weekly sets grow from the chosen volume across T1–T4. */
   rampsVolume: boolean;
   rule: (rir: string) => string;
   repsByWeek?: Partial<Record<MesoWeek, string>>;
@@ -14,7 +14,7 @@ export const PROGRESSIONS: ProgressionModel[] = [
   {
     id: "volume",
     name: "Progresja objętości",
-    short: "Serie rosną z tygodnia na tydzień: MEV → MAV → blisko MRV, potem deload.",
+    short: "Start od ustawionej objętości w T1, potem co tydzień +1–2 serie na partię, na koniec deload.",
     rampsVolume: true,
     rule: (rir) => `Dokładaj 1–2 serie na partię co tydzień, utrzymując RIR ${rir}.`,
   },
@@ -54,20 +54,19 @@ export const PROGRESSION_BY_ID = Object.fromEntries(PROGRESSIONS.map((p) => [p.i
   ProgressionModel
 >;
 
-/** Weekly sets target for a muscle given mesocycle week and progression model. */
+/** Weekly sets chosen with the volume slider (older saves fall back to the MEV–MAV midpoint). */
+export function baseSets(l: Landmark): number {
+  return typeof l.sets === "number" ? l.sets : Math.round((l.mev + l.mav) / 2);
+}
+
+const WEEK_STEP: Record<MesoWeek, number> = { T1: 0, T2: 1, T3: 2, T4: 3, DELOAD: 0 };
+
+/** Weekly sets for a muscle: the slider value, grown week by week only for volume-ramping models. */
 export function progressionTarget(l: Landmark, week: MesoWeek, progression: Progression): number {
+  const base = baseSets(l);
+  if (week === "DELOAD") return Math.round(base / 2);
   const ramp = PROGRESSION_BY_ID[progression]?.rampsVolume ?? true;
-  const mid = Math.round(l.mev + (l.mav - l.mev) * 0.5);
-  switch (week) {
-    case "T1":
-      return ramp ? l.mev : mid;
-    case "T2":
-      return mid;
-    case "T3":
-      return ramp ? l.mav : mid;
-    case "T4":
-      return ramp ? Math.round(Math.min(l.mrv, l.mav + (l.mrv - l.mav) * 0.5)) : mid;
-    case "DELOAD":
-      return Math.max(l.mv, Math.round(l.mev * 0.5));
-  }
+  if (!ramp || base < 4) return base;
+  const step = Math.max(1, Math.round(base * 0.1));
+  return base + step * WEEK_STEP[week];
 }
