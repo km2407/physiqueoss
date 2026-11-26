@@ -10,6 +10,7 @@ import { Panel } from "@/components/physique/AppShell";
 import { SessionCard, WeekStrip } from "@/components/physique/PlanView";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { autoRegulation, energy } from "@/lib/physique/calc";
 import { GOAL_LABEL, INJURY_LABEL, LEVEL_LABEL, MUSCLE_LABEL } from "@/lib/physique/labels";
 import { methodLabel } from "@/lib/physique/methods";
@@ -131,8 +132,47 @@ function Dashboard() {
             <MacroBar label="Białko" grams={e.protein} kcal={e.protein * 4} share={(e.protein * 4) / totalMacroKcal} tone="protein" />
             <MacroBar label="Węglowodany" grams={e.carbs} kcal={e.carbs * 4} share={(e.carbs * 4) / totalMacroKcal} tone="carbs" />
             <MacroBar label="Tłuszcze" grams={e.fat} kcal={e.fat * 9} share={(e.fat * 9) / totalMacroKcal} tone="fat" />
-            <div className="tabular pt-1 text-[11px] text-muted-foreground">
-              {(e.protein / active.weight).toFixed(1)} g/kg białka · {(e.fat / active.weight).toFixed(1)} g/kg tłuszczu
+            <div className="space-y-3 border-t border-border pt-3">
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-muted-foreground">Białko</span>
+                  <span className="tabular font-medium">{(e.protein / active.weight).toFixed(1)} g/kg</span>
+                </div>
+                <Slider
+                  aria-label="Białko g/kg"
+                  min={1.2}
+                  max={3.2}
+                  step={0.1}
+                  value={[Math.round((e.protein / active.weight) * 10) / 10]}
+                  onValueChange={([v]) => v !== undefined && updateClient(active.id, { proteinPerKg: v })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-muted-foreground">Tłuszcze</span>
+                  <span className="tabular font-medium">{(e.fat / active.weight).toFixed(1)} g/kg</span>
+                </div>
+                <Slider
+                  aria-label="Tłuszcze g/kg"
+                  min={0.5}
+                  max={1.8}
+                  step={0.1}
+                  value={[Math.round((e.fat / active.weight) * 10) / 10]}
+                  onValueChange={([v]) => v !== undefined && updateClient(active.id, { fatPerKg: v })}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>Węglowodany = reszta kalorii</span>
+                {(active.proteinPerKg !== undefined || active.fatPerKg !== undefined) && (
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={() => updateClient(active.id, { proteinPerKg: undefined, fatPerKg: undefined })}
+                  >
+                    Domyślne
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </Panel>

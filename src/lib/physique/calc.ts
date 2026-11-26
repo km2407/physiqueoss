@@ -37,8 +37,8 @@ export interface Energy {
 export function energy(c: Client, kcalOffset = c.kcalOffset ?? 0): Energy {
   const t = tdee(c);
   const target = Math.round((t * (1 + GOAL_ADJUST[c.goal]) + kcalOffset) / 10) * 10;
-  const protein = Math.round(c.weight * PROTEIN_PER_KG[c.goal]);
-  const fat = Math.round(c.weight * (c.gender === "K" ? 1.0 : 0.9));
+  const protein = Math.round(c.weight * (c.proteinPerKg ?? PROTEIN_PER_KG[c.goal]));
+  const fat = Math.round(c.weight * (c.fatPerKg ?? (c.gender === "K" ? 1.0 : 0.9)));
   const carbs = Math.max(0, Math.round((target - protein * 4 - fat * 9) / 4));
   return { bmr: bmr(c), tdee: t, target, protein, fat, carbs };
 }

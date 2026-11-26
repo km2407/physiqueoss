@@ -124,6 +124,9 @@ export interface Client {
   planCreatedAt?: string;
   /** Manual calorie correction from auto-regulation. */
   kcalOffset?: number;
+  /** Manual macro settings (g per kg body weight). */
+  proteinPerKg?: number | undefined;
+  fatPerKg?: number | undefined;
 }
 
 export interface WebhookSettings {
