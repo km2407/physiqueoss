@@ -76,21 +76,21 @@ export const METHODS: Methodology[] = [
     id: "gvt",
     name: "GVT",
     author: "German Volume Training",
-    short: "10 × 10 w głównym wielostawie (~60% 1RM).",
+    short: "Serie po 10 powtórzeń w głównym wielostawie (~60% 1RM), krótkie przerwy.",
     description:
-      "10 serii po 10 powtórzeń w głównym ćwiczeniu wielostawowym (ok. 60% 1RM, krótkie przerwy). Wysoka objętość i stres metaboliczny.",
+      "Serie po 10 powtórzeń w głównym ćwiczeniu wielostawowym (ok. 60% 1RM, krótkie przerwy) — w limicie 4 serii na ćwiczenie zamiast klasycznych 10×10. Wysoka gęstość i stres metaboliczny.",
     levels: ["advanced", "intermediate"],
     notFor: "Niezalecane dla początkujących i przy głębokim deficycie kalorycznym.",
     structure: (d) => (d <= 2 ? "fbw" : d === 4 ? "ul" : "split"),
-    scheme: { reps: "10 (10×10 w pierwszym ćwiczeniu)", rest: "60–90 s" },
+    scheme: { reps: "10", rest: "60–90 s" },
   },
   {
     id: "fst7",
     name: "FST-7",
     author: "Hany Rambod",
-    short: "Baza siłowa + 7 serii pompujących na końcu partii.",
+    short: "Baza siłowa + serie pompujące z krótkimi przerwami na końcu partii.",
     description:
-      "Baza siłowa, a na koniec partii 7 serii po 8–12 powtórzeń z przerwami 30–45 s i rozciąganiem/spinaniem powięzi między seriami. Pompa i estetyka.",
+      "Baza siłowa, a na koniec partii serie po 8–12 powtórzeń z przerwami 30–45 s i rozciąganiem/spinaniem powięzi między seriami (w limicie 4 serii na ćwiczenie zamiast klasycznych 7). Pompa i estetyka.",
     levels: ["intermediate", "advanced"],
     notFor: "Niezalecane dla początkujących.",
     structure: (d) => (d <= 2 ? "fbw" : d === 4 ? "ul" : "split"),
@@ -342,7 +342,7 @@ export function methodSuitability(
   if (id === "hiit" && bmi(c) >= 30) reasons.push("BMI ≥ 30 — HIIT obciąża stawy i układ krążenia.");
   if (id === "hiit" && (c.injuries.includes("knee") || c.injuries.includes("ankle")))
     reasons.push("Kontuzja kolana/kostki — interwały uderzeniowe są ryzykowne.");
-  if (id === "gvt" && c.goal === "cut") reasons.push("Głęboki deficyt utrudnia regenerację po 10×10.");
+  if (id === "gvt" && c.goal === "cut") reasons.push("Głęboki deficyt utrudnia regenerację po treningu GVT.");
   if (id === "platz" && (c.injuries.includes("knee") || c.injuries.includes("lumbar")))
     reasons.push("Kontuzja kolana lub odcinka lędźwiowego — przysiady na wysokie powtórzenia są ryzykowne.");
   if ((id === "heavy-duty" || id === "blood-guts") && c.days >= 6)

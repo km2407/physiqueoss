@@ -4,7 +4,7 @@ import { METHOD_BY_ID, resolveMethod, type Methodology, type Structure } from ".
 import { PROGRESSION_BY_ID, progressionTarget, type ProgressionModel } from "./progression";
 import type { Client, Equipment, Injury, Landmark, MesoWeek, Muscle, ScheduleDay } from "./types";
 
-/** No exercise gets more than this many working sets (GVT 10×10 and FST-7 keep their signature exercise). */
+/** No exercise gets more than this many working sets — for every methodology. */
 export const MAX_SETS_PER_EXERCISE = 4;
 const MAX_EXERCISES_PER_MUSCLE_DAY = 4;
 
@@ -489,9 +489,10 @@ export function buildPlan(client: Client): Plan {
   for (const s of sessions) {
     const firstCompound = s.exercises.find((e) => e.compound && e.sets > 0);
     if (methodId === "gvt" && firstCompound && week !== "DELOAD") {
-      firstCompound.sets = 10;
-      firstCompound.reps = "10 × 10 @ ~60% 1RM";
+      firstCompound.sets = MAX_SETS_PER_EXERCISE;
+      firstCompound.reps = "10 @ ~60% 1RM";
       firstCompound.rest = "60–90 s";
+      firstCompound.note = "GVT w limicie serii na ćwiczenie — tempo i krótkie przerwy jak w 10×10";
     }
     if (methodId === "531" && firstCompound) {
       firstCompound.sets = 3;
@@ -505,8 +506,8 @@ export function buildPlan(client: Client): Plan {
       const big = [...lastByMuscle.values()].filter((e) => !e.compound);
       const fst = big[0];
       if (fst) {
-        fst.sets = 7;
-        fst.reps = "8–12 (FST-7)";
+        fst.sets = MAX_SETS_PER_EXERCISE;
+        fst.reps = "8–12 (styl FST-7)";
         fst.rest = "30–45 s";
         fst.note = "Rozciąganie / spinanie powięzi między seriami";
       }

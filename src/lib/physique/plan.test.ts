@@ -135,7 +135,7 @@ describe("single volume slider", () => {
 describe("sets per exercise", () => {
   it("never gives an exercise more than 4 sets, even at high volume", () => {
     expect(MAX_SETS_PER_EXERCISE).toBe(4);
-    for (const method of ["auto", "ppl", "split", "upper-lower", "fbw", "arnold", "platz", "cbum"] as const) {
+    for (const method of ["auto", "ppl", "split", "upper-lower", "fbw", "arnold", "platz", "cbum", "gvt", "fst7", "531"] as const) {
       const c = { ...blankClient("x"), days: 5, method };
       const high = Object.fromEntries(Object.entries(c.landmarks).map(([m, l]) => [m, { ...l, sets: 20 }]));
       const plan = buildPlan({ ...c, landmarks: high as typeof c.landmarks });
