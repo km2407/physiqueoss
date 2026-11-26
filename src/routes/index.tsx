@@ -262,7 +262,7 @@ function Dashboard() {
                 ))}
               </ul>
             )}
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 2xl:grid-cols-2">
               {plan.sessions.map((s) => (
                 <SessionCard key={`${s.weekday}-${s.name}`} session={s} swap={swap} />
               ))}

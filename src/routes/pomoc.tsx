@@ -31,13 +31,13 @@ const STEPS = [
   },
   {
     title: "Kontroluj objętość frakcyjną",
-    body: "Seria bezpośrednia liczy się jako 1.0 dla głównej partii, a mięśnie pomocnicze dostają ułamek (np. wyciskanie: 0.5 tricepsu i przedniego barku; wiosłowanie: 0.5 bicepsu i tylnego barku). Plan odejmuje wkład pośredni od celu, więc izolacji nie dokładasz w ciemno. Suwaki MV/MEV/MAV/MRV ustawiasz osobno dla każdej partii.",
+    body: "Seria bezpośrednia liczy się jako 1.0 dla głównej partii, a mięśnie pomocnicze dostają ułamek (np. wyciskanie: 0.5 tricepsu i przedniego barku; wiosłowanie: 0.5 bicepsu i tylnego barku). Plan odejmuje wkład pośredni od celu, więc izolacji nie dokładasz w ciemno. Na stronie Objętość jednym suwakiem ustawiasz serie w tygodniu dla każdej partii; plan rozkłada je równo na dni, maks. 4 serie na ćwiczenie.",
     to: "/objetosc" as const,
     cta: "Przejdź do objętości",
   },
   {
     title: "Prowadź mezocykl z RIR i deloadem",
-    body: "Tydzień T1 startuje od MEV przy RIR 3, T2 i T3 zbliżają się do MAV (RIR 2 → 1), T4 to szczyt blisko MRV (RIR 0–1). Potem DELOAD: objętość spada w okolice MV, RIR 4+. Po zatwierdzeniu kliknij „Stwórz plan” — przy włączonej integracji plan trafi do n8n.",
+    body: "Tydzień T1 startuje od ustawionej objętości przy RIR 3. W progresji objętości T2–T4 dokładają 1–2 serie na partię co tydzień (RIR 2 → 0–1). Potem DELOAD: połowa serii, RIR 4+. Każde ćwiczenie w planie możesz zamienić przyciskiem „Zamień”. Po zatwierdzeniu kliknij „Stwórz plan” — przy włączonej integracji plan trafi do n8n.",
     to: "/" as const,
     cta: "Zobacz plan",
   },

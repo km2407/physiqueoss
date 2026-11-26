@@ -35,3 +35,5 @@ use the editor.
 - All app data persists in browser localStorage via `PhysiqueProvider` (no backend, no logins). Why: single-trainer personal tool; user chose on-device storage.
 - Gender theming is the `data-gender` attribute (M/K) swapping accent tokens in `src/styles.css`, mirrored on `<html>` for portaled overlays. Why: one switch recolors every component.
 - n8n webhooks are sent through the `sendWebhook` server function, not from the browser. Why: avoids CORS on user webhook URLs and keeps the secret header off third-party scripts.
+- Weekly volume is one `sets` value per muscle (landmarks are reference only); `allocateSets` spreads it over days (single-day muscles fixed, the rest go to the lightest day) and exercises are added as needed to respect `MAX_SETS_PER_EXERCISE`. Why: even days and a hard per-exercise cap without per-template tuning.
+- Hand-picked exercises live in `client.exerciseSwaps` keyed by `swapKey(weekday, muscle, index)`. Why: the plan stays derived, swaps survive rebuilds.
